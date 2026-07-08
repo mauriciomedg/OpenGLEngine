@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Material name="UltrasoundPrototypeMaterial">
+  <Shader vertex="../shaders/fullscreen.vert" fragment="../shaders/combine.frag" />
+</Material>

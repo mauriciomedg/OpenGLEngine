@@ -429,7 +429,8 @@ FodyWeavers.xsd
 *.msp
 
 # OpenGL/local dependencies
-external/
+external/*
+!external/.gitkeep
 .vcpkg/
 build/
 out/
