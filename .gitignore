@@ -427,3 +427,12 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# OpenGL/local dependencies
+external/
+.vcpkg/
+build/
+out/
+
+# Runtime logs
+*.log
