@@ -437,3 +437,6 @@ out/
 
 # Runtime logs
 *.log
+
+build/
+*.vcxproj.user
