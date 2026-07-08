@@ -1,0 +1,38 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(OpenGLEngine LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+find_package(glfw3 CONFIG REQUIRED)
+find_package(glad CONFIG REQUIRED)
+
+add_executable(OpenGLEngine
+    src/main.cpp
+    src/App.h
+    src/App.cpp
+    src/Shader.h
+    src/Shader.cpp
+    src/FullscreenQuad.h
+    src/FullscreenQuad.cpp
+)
+
+target_link_libraries(OpenGLEngine PRIVATE glfw glad::glad)
+
+target_compile_definitions(OpenGLEngine PRIVATE
+    ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/assets"
+)
+
+if (MSVC)
+    target_compile_options(OpenGLEngine PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(OpenGLEngine PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+add_custom_command(TARGET OpenGLEngine POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/assets
+            $<TARGET_FILE_DIR:OpenGLEngine>/assets
+)

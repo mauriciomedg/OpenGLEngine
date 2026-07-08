@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Pipeline name="UltrasoundPrototype">
+  <Stage name="fullscreen-combine" shader="combine" />
+  <Stage name="radial-blur-placeholder" shader="radial_blur" enabled="false" />
+</Pipeline>
