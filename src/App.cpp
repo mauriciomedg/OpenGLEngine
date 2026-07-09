@@ -2,6 +2,7 @@
 
 #include "FullscreenQuad.h"
 #include "Pipeline/Pipeline.h"
+#include "Pipeline/PipelineParser.h"
 #include "Renderer/Framebuffer.h"
 #include "Renderer/Texture2D.h"
 #include "Shader.h"
@@ -11,6 +12,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <random>
 #include <stdexcept>
 #include <string>
@@ -26,6 +28,75 @@ constexpr float Pi = 3.14159265358979323846f;
 std::string shaderPath(const char* fileName)
 {
     return std::string(ASSET_ROOT) + "/shaders/" + fileName;
+}
+
+std::string pipelinePath(const char* fileName)
+{
+    return std::string(ASSET_ROOT) + "/pipelines/" + fileName;
+}
+
+const char* commandTypeName(PipelineCommandType type)
+{
+    switch (type)
+    {
+    case PipelineCommandType::SwitchTarget:
+        return "SwitchTarget";
+    case PipelineCommandType::BindBuffer:
+        return "BindBuffer";
+    case PipelineCommandType::DrawQuad:
+        return "DrawQuad";
+    case PipelineCommandType::UnbindBuffers:
+        return "UnbindBuffers";
+    }
+
+    return "Unknown";
+}
+
+void printPipelineCommands(const std::vector<PipelineStage>& stages)
+{
+    std::cout << "Parsed pipeline stages:\n";
+
+    for (const PipelineStage& stage : stages)
+    {
+        std::cout << "  Stage id=\"" << stage.id << "\" enabled=" << (stage.enabled ? "true" : "false") << '\n';
+
+        for (const PipelineCommand& command : stage.commands)
+        {
+            std::cout << "    " << commandTypeName(command.type);
+
+            if (!command.target.empty())
+            {
+                std::cout << " target=\"" << command.target << "\"";
+            }
+
+            if (!command.sampler.empty())
+            {
+                std::cout << " sampler=\"" << command.sampler << "\"";
+            }
+
+            if (!command.sourceRT.empty())
+            {
+                std::cout << " sourceRT=\"" << command.sourceRT << "\"";
+            }
+
+            if (command.type == PipelineCommandType::BindBuffer)
+            {
+                std::cout << " bufIndex=" << command.bufIndex;
+            }
+
+            if (!command.material.empty())
+            {
+                std::cout << " material=\"" << command.material << "\"";
+            }
+
+            if (!command.context.empty())
+            {
+                std::cout << " context=\"" << command.context << "\"";
+            }
+
+            std::cout << '\n';
+        }
+    }
 }
 
 void framebufferSizeCallback(GLFWwindow*, int width, int height)
@@ -237,6 +308,10 @@ void App::presentTexture(unsigned int textureId, Shader& presentShader, Fullscre
 
 int App::run()
 {
+    const PipelineParser parser;
+    const std::vector<PipelineStage> stages = parser.load(pipelinePath("ultrasound.pipeline.xml"));
+    printPipelineCommands(stages);
+
     Shader combineShader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
     Shader presentShader(shaderPath("fullscreen.vert"), shaderPath("present.frag"));
     FullscreenQuad quad;

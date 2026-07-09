@@ -25,7 +25,7 @@ if not exist "%TOOLCHAIN%" (
 )
 
 echo Installing OpenGL dependencies...
-"%VCPKG_DIR%\vcpkg.exe" install glfw3:x64-windows glad:x64-windows
+"%VCPKG_DIR%\vcpkg.exe" install glfw3:x64-windows glad:x64-windows tinyxml2:x64-windows
 if errorlevel 1 goto error
 
 if exist build rmdir /s /q build

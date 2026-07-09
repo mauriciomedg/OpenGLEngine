@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
+find_package(tinyxml2 CONFIG REQUIRED)
 
 add_executable(OpenGLEngine
     src/main.cpp
@@ -19,6 +20,8 @@ add_executable(OpenGLEngine
     src/FullscreenQuad.cpp
     src/Pipeline/Pipeline.h
     src/Pipeline/Pipeline.cpp
+    src/Pipeline/PipelineParser.h
+    src/Pipeline/PipelineParser.cpp
     src/Renderer/Framebuffer.h
     src/Renderer/Framebuffer.cpp
     src/Renderer/Texture2D.h
@@ -27,7 +30,7 @@ add_executable(OpenGLEngine
     src/Renderer/TextureFormat.cpp
 )
 
-target_link_libraries(OpenGLEngine PRIVATE glfw glad::glad)
+target_link_libraries(OpenGLEngine PRIVATE glfw glad::glad tinyxml2::tinyxml2)
 
 target_compile_definitions(OpenGLEngine PRIVATE
     ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/assets"

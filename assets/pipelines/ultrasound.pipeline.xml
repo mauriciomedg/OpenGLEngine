@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Pipeline name="UltrasoundPrototype">
-  <Stage name="fullscreen-combine" shader="combine" />
-  <Stage name="radial-blur-placeholder" shader="radial_blur" enabled="false" />
+  <CommandQueue>
+    <Stage id="Combine">
+      <SwitchTarget target="COMBINE" />
+      <BindBuffer sampler="buf0" sourceRT="DENSITY" bufIndex="0" />
+      <BindBuffer sampler="buf1" sourceRT="NOISE" bufIndex="1" />
+      <BindBuffer sampler="buf2" sourceRT="METAL" bufIndex="2" />
+      <BindBuffer sampler="buf3" sourceRT="LUNGS_IN" bufIndex="3" />
+      <BindBuffer sampler="echoMask" sourceRT="ECHOMASK" bufIndex="4" />
+      <DrawQuad material="materials/ultrasound.material.xml" context="UBER" />
+      <UnbindBuffers />
+    </Stage>
+  </CommandQueue>
 </Pipeline>
