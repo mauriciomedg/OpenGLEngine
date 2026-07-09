@@ -49,5 +49,4 @@ void Pipeline::executeCombineStage(
     Texture2D::unbind(4);
     glActiveTexture(GL_TEXTURE0);
 
-    Framebuffer::unbind();
 }

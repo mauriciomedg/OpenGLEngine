@@ -330,6 +330,9 @@ int App::run()
             *metalTexture_,
             *lungsTexture_,
             *echoMaskTexture_);
+
+        Framebuffer::unbind();   // only once, before presenting
+
         presentTexture(combineTarget_->textureId(), presentShader, quad);
 
         glfwSwapBuffers(window_);
