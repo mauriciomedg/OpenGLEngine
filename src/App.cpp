@@ -18,7 +18,7 @@ namespace
 {
 constexpr int WindowWidth = 1024;
 constexpr int WindowHeight = 1024;
-constexpr int ProceduralTextureSize = 1024;
+constexpr int ProceduralTextureSize = 256;
 constexpr float Pi = 3.14159265358979323846f;
 
 std::string shaderPath(const char* fileName)
@@ -171,10 +171,17 @@ App::App()
     }
 
     glViewport(0, 0, WindowWidth, WindowHeight);
+    createProceduralInputTextures();
 }
 
 App::~App()
 {
+    echoMaskTexture_.reset();
+    lungsTexture_.reset();
+    metalTexture_.reset();
+    noiseTexture_.reset();
+    densityTexture_.reset();
+
     if (window_)
     {
         glfwDestroyWindow(window_);
@@ -183,28 +190,36 @@ App::~App()
     glfwTerminate();
 }
 
-int App::run()
+void App::createProceduralInputTextures()
 {
-    Shader shader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
-    FullscreenQuad quad;
     const std::vector<float> densityData = createDensityTexture(ProceduralTextureSize, ProceduralTextureSize);
     const std::vector<float> noiseData = createNoiseTexture(ProceduralTextureSize, ProceduralTextureSize);
     const std::vector<float> metalData = createMetalTexture(ProceduralTextureSize, ProceduralTextureSize);
     const std::vector<float> lungsData = createLungsTexture(ProceduralTextureSize, ProceduralTextureSize);
     const std::vector<float> echoMaskData = createEchoMaskTexture(ProceduralTextureSize, ProceduralTextureSize);
 
-    Texture2D densityTexture(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, densityData.data());
-    Texture2D noiseTexture(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, noiseData.data());
-    Texture2D metalTexture(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, metalData.data());
-    Texture2D lungsTexture(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, lungsData.data());
-    Texture2D echoMaskTexture(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, echoMaskData.data());
+    densityTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, densityData.data());
+    noiseTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, noiseData.data());
+    metalTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, metalData.data());
+    lungsTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, lungsData.data());
+    echoMaskTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, echoMaskData.data());
+}
 
-    densityTexture.bind(0);
-    noiseTexture.bind(1);
-    metalTexture.bind(2);
-    lungsTexture.bind(3);
-    echoMaskTexture.bind(4);
+void App::bindProceduralInputTextures() const
+{
+    densityTexture_->bind(0);
+    noiseTexture_->bind(1);
+    metalTexture_->bind(2);
+    lungsTexture_->bind(3);
+    echoMaskTexture_->bind(4);
     glActiveTexture(GL_TEXTURE0);
+}
+
+int App::run()
+{
+    Shader shader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
+    FullscreenQuad quad;
+    bindProceduralInputTextures();
 
     while (!glfwWindowShouldClose(window_))
     {
