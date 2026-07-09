@@ -15,6 +15,7 @@ public:
     Texture2D& operator=(Texture2D&& other) noexcept;
 
     void bind(unsigned int unit) const;
+    static void unbind(unsigned int unit);
 
     unsigned int id() const;
     int width() const;

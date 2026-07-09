@@ -1,6 +1,8 @@
 #include "App.h"
 
 #include "FullscreenQuad.h"
+#include "Pipeline/Pipeline.h"
+#include "Renderer/Framebuffer.h"
 #include "Renderer/Texture2D.h"
 #include "Shader.h"
 
@@ -171,11 +173,13 @@ App::App()
     }
 
     glViewport(0, 0, WindowWidth, WindowHeight);
+    createRenderTargets();
     createProceduralInputTextures();
 }
 
 App::~App()
 {
+    combineTarget_.reset();
     echoMaskTexture_.reset();
     lungsTexture_.reset();
     metalTexture_.reset();
@@ -188,6 +192,11 @@ App::~App()
     }
 
     glfwTerminate();
+}
+
+void App::createRenderTargets()
+{
+    combineTarget_ = std::make_unique<Framebuffer>(WindowWidth, WindowHeight, FramebufferFormat::RGBA8);
 }
 
 void App::createProceduralInputTextures()
@@ -205,39 +214,48 @@ void App::createProceduralInputTextures()
     echoMaskTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, echoMaskData.data());
 }
 
-void App::bindProceduralInputTextures() const
+void App::presentTexture(unsigned int textureId, Shader& presentShader, FullscreenQuad& quad) const
 {
-    densityTexture_->bind(0);
-    noiseTexture_->bind(1);
-    metalTexture_->bind(2);
-    lungsTexture_->bind(3);
-    echoMaskTexture_->bind(4);
+    int framebufferWidth = WindowWidth;
+    int framebufferHeight = WindowHeight;
+    glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
+
+    glViewport(0, 0, framebufferWidth, framebufferHeight);
+    glClearColor(0.02f, 0.03f, 0.04f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    presentShader.use();
+    presentShader.setInt("buf0", 0);
+
     glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+
+    quad.draw();
+
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 int App::run()
 {
-    Shader shader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
+    Shader combineShader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
+    Shader presentShader(shaderPath("fullscreen.vert"), shaderPath("present.frag"));
     FullscreenQuad quad;
-    
-    shader.use();
-    shader.setInt("buf0", 0);
-    shader.setInt("buf1", 1);
-    shader.setInt("buf2", 2);
-    shader.setInt("buf3", 3);
-    shader.setInt("echoMask", 4);
+    Pipeline pipeline;
 
     while (!glfwWindowShouldClose(window_))
     {
         glfwPollEvents();
 
-        glClearColor(0.02f, 0.03f, 0.04f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        shader.use();
-        bindProceduralInputTextures();
-
-        quad.draw();
+        pipeline.executeCombineStage(
+            *combineTarget_,
+            combineShader,
+            quad,
+            *densityTexture_,
+            *noiseTexture_,
+            *metalTexture_,
+            *lungsTexture_,
+            *echoMaskTexture_);
+        presentTexture(combineTarget_->textureId(), presentShader, quad);
 
         glfwSwapBuffers(window_);
     }

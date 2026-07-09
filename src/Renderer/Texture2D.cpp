@@ -93,6 +93,12 @@ void Texture2D::bind(unsigned int unit) const
     //sampler uniform = tell shader which slot to read
 }
 
+void Texture2D::unbind(unsigned int unit)
+{
+    glActiveTexture(GL_TEXTURE0 + unit);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 unsigned int Texture2D::id() const
 {
     return texture_;
