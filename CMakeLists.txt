@@ -17,6 +17,8 @@ add_executable(OpenGLEngine
     src/Shader.cpp
     src/FullscreenQuad.h
     src/FullscreenQuad.cpp
+    src/Renderer/Framebuffer.h
+    src/Renderer/Framebuffer.cpp
 )
 
 target_link_libraries(OpenGLEngine PRIVATE glfw glad::glad)
