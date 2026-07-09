@@ -54,8 +54,8 @@ Framebuffer::Framebuffer(int width, int height, FramebufferFormat format)
 
     const TextureFormat textureFormat = toTextureFormat(format_);
 
-    glGenFramebuffers(1, &fbo_);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+    glGenFramebuffers(1, &fbo_); // create a framebuffer object and put its ID inside fbo_ 
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo_); // make this buffer the current render target
 
     glGenTextures(1, &texture_);
     glBindTexture(GL_TEXTURE_2D, texture_);
@@ -70,13 +70,18 @@ Framebuffer::Framebuffer(int width, int height, FramebufferFormat format)
         textureFormat.type,
         nullptr);
 
+    // when sampling the texture in a shader interpolate smootly.
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // This avoid wrapping. If UV goes outside [0,1], it clamps the edges.
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
+    // attach the texture to the buffer. When this buffer in bound, render color output
+    // into the texture
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture_, 0);
 
+    // OpenGL framebuffers can be invalid if attachments are missing or formats are wrong.
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -131,6 +136,7 @@ Framebuffer& Framebuffer::operator=(Framebuffer&& other) noexcept
 void Framebuffer::bind() const
 {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+    glViewport(0, 0, width_, height_); // tells OpenGL where and how big to render inside the current framebuffer
 }
 
 void Framebuffer::unbind()
