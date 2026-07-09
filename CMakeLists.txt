@@ -19,6 +19,10 @@ add_executable(OpenGLEngine
     src/FullscreenQuad.cpp
     src/Renderer/Framebuffer.h
     src/Renderer/Framebuffer.cpp
+    src/Renderer/Texture2D.h
+    src/Renderer/Texture2D.cpp
+    src/Renderer/TextureFormat.h
+    src/Renderer/TextureFormat.cpp
 )
 
 target_link_libraries(OpenGLEngine PRIVATE glfw glad::glad)

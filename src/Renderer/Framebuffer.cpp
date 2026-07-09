@@ -1,31 +1,13 @@
 #include "Framebuffer.h"
 
+#include "TextureFormat.h"
+
 #include <glad/glad.h>
 
 #include <stdexcept>
 
 namespace
 {
-struct TextureFormat
-{
-    int internalFormat;
-    unsigned int format;
-    unsigned int type;
-};
-
-TextureFormat toTextureFormat(FramebufferFormat format)
-{
-    switch (format)
-    {
-    case FramebufferFormat::RGBA8:
-        return {GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE};
-    case FramebufferFormat::R32F:
-        return {GL_R32F, GL_RED, GL_FLOAT};
-    }
-
-    throw std::runtime_error("Unsupported framebuffer format.");
-}
-
 void deleteResources(unsigned int& fbo, unsigned int& texture)
 {
     if (texture != 0)
@@ -52,7 +34,7 @@ Framebuffer::Framebuffer(int width, int height, FramebufferFormat format)
         throw std::runtime_error("Framebuffer dimensions must be positive.");
     }
 
-    const TextureFormat textureFormat = toTextureFormat(format_);
+    const TextureFormatInfo textureFormat = toTextureFormatInfo(format_);
 
     glGenFramebuffers(1, &fbo_); // create a framebuffer object and put its ID inside fbo_ 
     glBindFramebuffer(GL_FRAMEBUFFER, fbo_); // make this buffer the current render target
