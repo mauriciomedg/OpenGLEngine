@@ -20,6 +20,8 @@ add_executable(OpenGLEngine
     src/FullscreenQuad.cpp
     src/Pipeline/Pipeline.h
     src/Pipeline/Pipeline.cpp
+    src/Pipeline/PipelineExecutor.h
+    src/Pipeline/PipelineExecutor.cpp
     src/Pipeline/PipelineParser.h
     src/Pipeline/PipelineParser.cpp
     src/Renderer/Framebuffer.h

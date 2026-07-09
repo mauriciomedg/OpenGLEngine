@@ -1,7 +1,7 @@
 #include "App.h"
 
 #include "FullscreenQuad.h"
-#include "Pipeline/Pipeline.h"
+#include "Pipeline/PipelineExecutor.h"
 #include "Pipeline/PipelineParser.h"
 #include "Renderer/Framebuffer.h"
 #include "Renderer/Texture2D.h"
@@ -97,6 +97,24 @@ void printPipelineCommands(const std::vector<PipelineStage>& stages)
             std::cout << '\n';
         }
     }
+}
+
+const PipelineStage& findPipelineStage(const std::vector<PipelineStage>& stages, const std::string& id)
+{
+    const auto found = std::find_if(
+        stages.begin(),
+        stages.end(),
+        [&id](const PipelineStage& stage)
+        {
+            return stage.id == id;
+        });
+
+    if (found == stages.end())
+    {
+        throw std::runtime_error("Pipeline stage not found: " + id);
+    }
+
+    return *found;
 }
 
 void framebufferSizeCallback(GLFWwindow*, int width, int height)
@@ -311,28 +329,28 @@ int App::run()
     const PipelineParser parser;
     const std::vector<PipelineStage> stages = parser.load(pipelinePath("ultrasound.pipeline.xml"));
     printPipelineCommands(stages);
+    const PipelineStage& combineStage = findPipelineStage(stages, "Combine");
 
     Shader combineShader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
     Shader presentShader(shaderPath("fullscreen.vert"), shaderPath("present.frag"));
     FullscreenQuad quad;
-    Pipeline pipeline;
+    PipelineExecutor executor;
+    PipelineResources resources;
+    resources.renderTargets["COMBINE"] = combineTarget_.get();
+    resources.textures["DENSITY"] = densityTexture_.get();
+    resources.textures["NOISE"] = noiseTexture_.get();
+    resources.textures["METAL"] = metalTexture_.get();
+    resources.textures["LUNGS_IN"] = lungsTexture_.get();
+    resources.textures["ECHOMASK"] = echoMaskTexture_.get();
+    resources.shaders["UBER"] = &combineShader;
+    resources.quad = &quad;
 
     while (!glfwWindowShouldClose(window_))
     {
         glfwPollEvents();
 
-        pipeline.executeCombineStage(
-            *combineTarget_,
-            combineShader,
-            quad,
-            *densityTexture_,
-            *noiseTexture_,
-            *metalTexture_,
-            *lungsTexture_,
-            *echoMaskTexture_);
-
-        Framebuffer::unbind();   // only once, before presenting
-
+        executor.executeStage(combineStage, resources);
+        Framebuffer::unbind();
         presentTexture(combineTarget_->textureId(), presentShader, quad);
 
         glfwSwapBuffers(window_);
