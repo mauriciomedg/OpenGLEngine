@@ -88,8 +88,9 @@ Texture2D& Texture2D::operator=(Texture2D&& other) noexcept
 
 void Texture2D::bind(unsigned int unit) const
 {
-    glActiveTexture(GL_TEXTURE0 + unit);
-    glBindTexture(GL_TEXTURE_2D, texture_);
+    glActiveTexture(GL_TEXTURE0 + unit); // chose the slot
+    glBindTexture(GL_TEXTURE_2D, texture_); // put the texture in that slot
+    //sampler uniform = tell shader which slot to read
 }
 
 unsigned int Texture2D::id() const

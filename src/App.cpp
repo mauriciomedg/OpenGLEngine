@@ -219,7 +219,13 @@ int App::run()
 {
     Shader shader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
     FullscreenQuad quad;
-    bindProceduralInputTextures();
+    
+    shader.use();
+    shader.setInt("buf0", 0);
+    shader.setInt("buf1", 1);
+    shader.setInt("buf2", 2);
+    shader.setInt("buf3", 3);
+    shader.setInt("echoMask", 4);
 
     while (!glfwWindowShouldClose(window_))
     {
@@ -229,6 +235,8 @@ int App::run()
         glClear(GL_COLOR_BUFFER_BIT);
 
         shader.use();
+        bindProceduralInputTextures();
+
         quad.draw();
 
         glfwSwapBuffers(window_);

@@ -13,6 +13,8 @@ public:
 
     void use() const;
 
+    void setInt(const char* name, int value) const;
+
 private:
     unsigned int program_ = 0;
 };

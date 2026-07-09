@@ -79,6 +79,17 @@ Shader::~Shader()
     }
 }
 
+void Shader::setInt(const char* name, int value) const
+{
+    const int location = glGetUniformLocation(program_, name);
+    if (location == -1)
+    {
+        throw std::runtime_error(std::string("Uniform not found: ") + name);
+    }
+
+    glUniform1i(location, value);
+}
+
 void Shader::use() const
 {
     glUseProgram(program_);
