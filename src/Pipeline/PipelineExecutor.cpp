@@ -2,6 +2,7 @@
 
 #include "../FullscreenQuad.h"
 #include "../Material/Material.h"
+#include "../Material/MaterialManager.h"
 #include "../Renderer/Framebuffer.h"
 #include "../Renderer/Texture2D.h"
 #include "../Shader.h"
@@ -210,8 +211,19 @@ void PipelineExecutor::executeStage(
                 throw std::runtime_error("Pipeline DrawQuad is missing context for material: " + command.material);
             }
 
-            Material* material = findResource(resources.materials, command.material, "material");
-            Shader& shader = material->shader();
+            if (resources.materialManager == nullptr)
+            {
+                throw std::runtime_error("Pipeline DrawQuad is missing a material manager.");
+            }
+
+            if (resources.assetRoot.empty())
+            {
+                throw std::runtime_error("Pipeline DrawQuad is missing an asset root for material: " + command.material);
+            }
+
+            const std::filesystem::path materialPath = resources.assetRoot / command.material;
+            Material& material = resources.materialManager->load(materialPath);
+            Shader& shader = material.shader();
             shader.use();
             const bool setupApplied = applyShaderSetup(command.context, resources, shader);
 
