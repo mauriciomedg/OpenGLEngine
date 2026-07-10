@@ -26,18 +26,36 @@ auto findResource(const Map& resources, const std::string& id, const char* resou
     return found->second;
 }
 
+void bindTextureId(unsigned int textureId, unsigned int unit)
+{
+    glActiveTexture(GL_TEXTURE0 + unit);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+}
+
 void applyBindBuffer(const PipelineCommand& command, const PipelineResources& resources, Shader& shader, int& maxBoundUnit)
 {
-    const Texture2D* texture = findResource(resources.textures, command.sourceRT, "texture");
     const int unit = command.bufIndex;
 
     shader.setInt(command.sampler.c_str(), unit);
-    texture->bind(static_cast<unsigned int>(unit));
-    maxBoundUnit = std::max(maxBoundUnit, unit);
 
-    std::cout << "[XML] BindBuffer " << command.sampler << "/" << command.sourceRT
-              << " unit " << unit
-              << " -> glUniform1i + glActiveTexture + glBindTexture\n";
+    const auto texture = resources.textures.find(command.sourceRT);
+    if (texture != resources.textures.end() && texture->second != nullptr)
+    {
+        texture->second->bind(static_cast<unsigned int>(unit));
+        std::cout << "[XML] BindBuffer " << command.sampler << "/" << command.sourceRT
+                  << " unit " << unit
+                  << " -> glUniform1i + glActiveTexture + glBindTexture\n";
+    }
+    else
+    {
+        const Framebuffer* renderTarget = findResource(resources.renderTargets, command.sourceRT, "render target texture");
+        bindTextureId(renderTarget->textureId(), static_cast<unsigned int>(unit));
+        std::cout << "[XML] BindBuffer " << command.sampler << "/" << command.sourceRT
+                  << " unit " << unit
+                  << " -> bind render target texture\n";
+    }
+
+    maxBoundUnit = std::max(maxBoundUnit, unit);
 }
 }
 

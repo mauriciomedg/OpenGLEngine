@@ -91,6 +91,17 @@ void Shader::setInt(const char* name, int value) const
     glUniform1i(location, value);
 }
 
+void Shader::setFloat(const char* name, float value) const
+{
+    const int location = glGetUniformLocation(program_, name);
+    if (location == -1)
+    {
+        throw std::runtime_error(std::string("Uniform not found: ") + name);
+    }
+
+    glUniform1f(location, value);
+}
+
 void Shader::setMat4(const char* name, const glm::mat4& value) const
 {
     const int location = glGetUniformLocation(program_, name);

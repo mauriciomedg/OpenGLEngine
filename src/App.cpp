@@ -12,6 +12,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/matrix.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -130,24 +131,12 @@ float normalizedCoord(int value, int size)
     return (static_cast<float>(value) + 0.5f) / static_cast<float>(size);
 }
 
-std::vector<float> createDensityTexture(int width, int height)
+glm::mat4 createCubeModelMatrix(float time)
 {
-    std::vector<float> data(width * height);
-
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            const float u = normalizedCoord(x, width);
-            const float v = normalizedCoord(y, height);
-            const float dx = u - 0.5f;
-            const float dy = v - 0.5f;
-            const float distance = std::sqrt(dx * dx + dy * dy);
-            data[y * width + x] = std::clamp(1.0f - distance / 0.52f, 0.0f, 1.0f);
-        }
-    }
-
-    return data;
+    glm::mat4 model(1.0f);
+    model = glm::rotate(model, time * 0.85f, glm::vec3(0.0f, 1.0f, 0.0f));
+    model = glm::rotate(model, time * 0.45f, glm::vec3(1.0f, 0.0f, 0.0f));
+    return model;
 }
 
 std::vector<float> createNoiseTexture(int width, int height)
@@ -273,12 +262,12 @@ App::App()
 
 App::~App()
 {
+    densityTarget_.reset();
     combineTarget_.reset();
     echoMaskTexture_.reset();
     lungsTexture_.reset();
     metalTexture_.reset();
     noiseTexture_.reset();
-    densityTexture_.reset();
 
     if (window_)
     {
@@ -290,25 +279,24 @@ App::~App()
 
 void App::createRenderTargets()
 {
+    densityTarget_ = std::make_unique<Framebuffer>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F);
     combineTarget_ = std::make_unique<Framebuffer>(WindowWidth, WindowHeight, FramebufferFormat::RGBA8);
 }
 
 void App::createProceduralInputTextures()
 {
-    const std::vector<float> densityData = createDensityTexture(ProceduralTextureSize, ProceduralTextureSize);
     const std::vector<float> noiseData = createNoiseTexture(ProceduralTextureSize, ProceduralTextureSize);
     const std::vector<float> metalData = createMetalTexture(ProceduralTextureSize, ProceduralTextureSize);
     const std::vector<float> lungsData = createLungsTexture(ProceduralTextureSize, ProceduralTextureSize);
     const std::vector<float> echoMaskData = createEchoMaskTexture(ProceduralTextureSize, ProceduralTextureSize);
 
-    densityTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, densityData.data());
     noiseTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, noiseData.data());
     metalTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, metalData.data());
     lungsTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, lungsData.data());
     echoMaskTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, echoMaskData.data());
 }
 
-void App::renderCubeViewport(Mesh& cube, Shader& meshShader) const
+void App::renderCubeViewport(Mesh& cube, Shader& meshShader, const glm::mat4& model) const
 {
     int framebufferWidth = WindowWidth;
     int framebufferHeight = WindowHeight;
@@ -323,10 +311,6 @@ void App::renderCubeViewport(Mesh& cube, Shader& meshShader) const
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     camera_->setAspectRatio(static_cast<float>(leftWidth) / static_cast<float>(framebufferHeight));
-    const float time = static_cast<float>(glfwGetTime());
-    glm::mat4 model(1.0f);
-    model = glm::rotate(model, time * 0.85f, glm::vec3(0.0f, 1.0f, 0.0f));
-    model = glm::rotate(model, time * 0.45f, glm::vec3(1.0f, 0.0f, 0.0f));
 
     meshShader.use();
     meshShader.setMat4("uModel", model);
@@ -336,6 +320,21 @@ void App::renderCubeViewport(Mesh& cube, Shader& meshShader) const
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_SCISSOR_TEST);
+}
+
+void App::renderDensitySlice(Shader& sliceShader, FullscreenQuad& quad, const glm::mat4& inverseModel) const
+{
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    densityTarget_->bind();
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    sliceShader.use();
+    sliceShader.setMat4("uInverseModel", inverseModel);
+    sliceShader.setFloat("uSliceZ", 0.0f);
+    quad.draw();
 }
 
 void App::presentTexture(unsigned int textureId, Shader& presentShader, FullscreenQuad& quad, int x, int y, int width, int height) const
@@ -368,13 +367,14 @@ int App::run()
 
     Shader combineShader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
     Shader presentShader(shaderPath("fullscreen.vert"), shaderPath("present.frag"));
+    Shader sliceShader(shaderPath("fullscreen.vert"), shaderPath("slice_cube.frag"));
     Shader meshShader(shaderPath("mesh.vert"), shaderPath("mesh.frag"));
     FullscreenQuad quad;
     Mesh cube = Mesh::createCube();
     PipelineExecutor executor;
     PipelineResources resources;
+    resources.renderTargets["DENSITY"] = densityTarget_.get();
     resources.renderTargets["COMBINE"] = combineTarget_.get();
-    resources.textures["DENSITY"] = densityTexture_.get();
     resources.textures["NOISE"] = noiseTexture_.get();
     resources.textures["METAL"] = metalTexture_.get();
     resources.textures["LUNGS_IN"] = lungsTexture_.get();
@@ -386,7 +386,9 @@ int App::run()
     {
         glfwPollEvents();
 
-        renderCubeViewport(cube, meshShader);
+        const glm::mat4 cubeModel = createCubeModelMatrix(static_cast<float>(glfwGetTime()));
+        renderCubeViewport(cube, meshShader, cubeModel);
+        renderDensitySlice(sliceShader, quad, glm::inverse(cubeModel));
 
         executor.executeStage(combineStage, resources);
         Framebuffer::unbind();
