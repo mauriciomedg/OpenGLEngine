@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Pipeline>
+  <Setup>
+    <RenderTarget id="SHADOWBUFS" depthBuf="true" numDepthLayers="1" width="1024" height="1024" />
+  </Setup>
+
+  <CommandQueue>
+    <Stage id="Shadows" enabled="1">
+      <SwitchTarget target="SHADOWBUFS" />
+      <ClearTarget depthBuf="true" />
+      <DrawGeometry context="SHADOWS" cullFrustum="Light" />
+    </Stage>
+
+    <Stage id="Geometry">
+      <SwitchTarget target="" />
+      <ClearTarget
+          depthBuf="true"
+          colBuf0="true"
+          col_R="0.36"
+          col_G="0.36"
+          col_B="0.36" />
+
+      <BindBuffer
+          sampler="shadowMap"
+          sourceRT="SHADOWBUFS"
+          bufIndex="32" />
+
+      <DrawGeometry context="LIGHTING" />
+      <DrawGeometry context="PARTICLES" />
+      <DrawGeometry context="DEBUG" />
+    </Stage>
+  </CommandQueue>
+</Pipeline>

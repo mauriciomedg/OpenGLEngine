@@ -12,6 +12,8 @@ TextureFormatInfo toTextureFormatInfo(FramebufferFormat format)
         return {GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE};
     case FramebufferFormat::R32F:
         return {GL_R32F, GL_RED, GL_FLOAT};
+    case FramebufferFormat::Depth32F:
+        break;
     }
 
     throw std::runtime_error("Unsupported texture format.");

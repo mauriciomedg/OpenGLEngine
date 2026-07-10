@@ -26,13 +26,14 @@ public:
 private:
     void createRenderTargets();
     void createProceduralInputTextures();
-    void renderCubeViewport(Mesh& cube, Shader& meshShader, const glm::mat4& model) const;
+    void configureLeftViewport() const;
     void renderDensitySlice(Shader& sliceShader, FullscreenQuad& quad, const glm::mat4& inverseModel) const;
     void presentTexture(unsigned int textureId, Shader& presentShader, FullscreenQuad& quad, int x, int y, int width, int height) const;
 
     GLFWwindow* window_ = nullptr;
     std::unique_ptr<Camera> camera_;
 
+    std::unique_ptr<Framebuffer> shadowTarget_;
     std::unique_ptr<Framebuffer> densityTarget_;
     std::unique_ptr<Framebuffer> combineTarget_;
     std::unique_ptr<Texture2D> noiseTexture_;

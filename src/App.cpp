@@ -11,6 +11,7 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/matrix.hpp>
 
@@ -198,6 +199,7 @@ App::App()
 
 App::~App()
 {
+    shadowTarget_.reset();
     densityTarget_.reset();
     combineTarget_.reset();
     echoMaskTexture_.reset();
@@ -215,6 +217,12 @@ App::~App()
 
 void App::createRenderTargets()
 {
+    shadowTarget_ = std::make_unique<Framebuffer>(FramebufferDesc{
+        1024,
+        1024,
+        false,
+        true,
+        FramebufferFormat::Depth32F});
     densityTarget_ = std::make_unique<Framebuffer>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F);
     combineTarget_ = std::make_unique<Framebuffer>(WindowWidth, WindowHeight, FramebufferFormat::RGBA8);
 }
@@ -232,7 +240,7 @@ void App::createProceduralInputTextures()
     echoMaskTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, echoMaskData.data());
 }
 
-void App::renderCubeViewport(Mesh& cube, Shader& meshShader, const glm::mat4& model) const
+void App::configureLeftViewport() const
 {
     int framebufferWidth = WindowWidth;
     int framebufferHeight = WindowHeight;
@@ -242,20 +250,7 @@ void App::renderCubeViewport(Mesh& cube, Shader& meshShader, const glm::mat4& mo
     glEnable(GL_SCISSOR_TEST);
     glViewport(0, 0, leftWidth, framebufferHeight);
     glScissor(0, 0, leftWidth, framebufferHeight);
-    glEnable(GL_DEPTH_TEST);
-    glClearColor(0.04f, 0.05f, 0.07f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     camera_->setAspectRatio(static_cast<float>(leftWidth) / static_cast<float>(framebufferHeight));
-
-    meshShader.use();
-    meshShader.setMat4("uModel", model);
-    meshShader.setMat4("uView", camera_->viewMatrix());
-    meshShader.setMat4("uProjection", camera_->projectionMatrix());
-    cube.draw();
-
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_SCISSOR_TEST);
 }
 
 void App::renderDensitySlice(Shader& sliceShader, FullscreenQuad& quad, const glm::mat4& inverseModel) const
@@ -297,36 +292,78 @@ void App::presentTexture(unsigned int textureId, Shader& presentShader, Fullscre
 int App::run()
 {
     const PipelineParser parser;
-    const std::vector<PipelineStage> stages = parser.load(pipelinePath("ultrasound.pipeline.xml"));
+    const std::vector<PipelineStage> ultrasoundStages = parser.load(pipelinePath("ultrasound.pipeline.xml"));
+    const std::vector<PipelineStage> forwardStages = parser.load(pipelinePath("forward.pipeline.xml"));
 
-    const PipelineStage& combineStage = findPipelineStage(stages, "Combine");
+    const PipelineStage& combineStage = findPipelineStage(ultrasoundStages, "Combine");
+    const PipelineStage& shadowsStage = findPipelineStage(forwardStages, "Shadows");
+    const PipelineStage& geometryStage = findPipelineStage(forwardStages, "Geometry");
 
     Shader combineShader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
     Shader presentShader(shaderPath("fullscreen.vert"), shaderPath("present.frag"));
     Shader sliceShader(shaderPath("fullscreen.vert"), shaderPath("slice_cube.frag"));
     Shader meshShader(shaderPath("mesh.vert"), shaderPath("mesh.frag"));
+    Shader shadowShader(shaderPath("shadow_depth.vert"), shaderPath("shadow_depth.frag"));
     FullscreenQuad quad;
     Mesh cube = Mesh::createCube();
     PipelineExecutor executor;
-    PipelineResources resources;
-    resources.renderTargets["DENSITY"] = densityTarget_.get();
-    resources.renderTargets["COMBINE"] = combineTarget_.get();
-    resources.textures["NOISE"] = noiseTexture_.get();
-    resources.textures["METAL"] = metalTexture_.get();
-    resources.textures["LUNGS_IN"] = lungsTexture_.get();
-    resources.textures["ECHOMASK"] = echoMaskTexture_.get();
-    resources.shaders["UBER"] = &combineShader;
-    resources.quad = &quad;
+    glm::mat4 cubeModel(1.0f);
+    const glm::mat4 lightViewProjection =
+        glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, 0.1f, 10.0f) *
+        glm::lookAt(glm::vec3(2.0f, 3.0f, 2.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    PipelineResources forwardResources;
+    forwardResources.renderTargets["SHADOWBUFS"] = shadowTarget_.get();
+    forwardResources.shaders["SHADOWS"] = &shadowShader;
+    forwardResources.shaders["LIGHTING"] = &meshShader;
+    forwardResources.quad = &quad;
+    forwardResources.geometryDraws["SHADOWS"] =
+        [&]()
+        {
+            glEnable(GL_DEPTH_TEST);
+            shadowShader.use();
+            shadowShader.setMat4("uModel", cubeModel);
+            shadowShader.setMat4("uLightViewProjection", lightViewProjection);
+            cube.draw();
+        };
+    forwardResources.geometryDraws["LIGHTING"] =
+        [&]()
+        {
+            glEnable(GL_DEPTH_TEST);
+            meshShader.use();
+            meshShader.setMat4("uModel", cubeModel);
+            meshShader.setMat4("uView", camera_->viewMatrix());
+            meshShader.setMat4("uProjection", camera_->projectionMatrix());
+            cube.draw();
+        };
+
+    PipelineResources ultrasoundResources;
+    ultrasoundResources.renderTargets["DENSITY"] = densityTarget_.get();
+    ultrasoundResources.renderTargets["COMBINE"] = combineTarget_.get();
+    ultrasoundResources.textures["NOISE"] = noiseTexture_.get();
+    ultrasoundResources.textures["METAL"] = metalTexture_.get();
+    ultrasoundResources.textures["LUNGS_IN"] = lungsTexture_.get();
+    ultrasoundResources.textures["ECHOMASK"] = echoMaskTexture_.get();
+    ultrasoundResources.shaders["UBER"] = &combineShader;
+    ultrasoundResources.quad = &quad;
 
     while (!glfwWindowShouldClose(window_))
     {
         glfwPollEvents();
 
-        const glm::mat4 cubeModel = createCubeModelMatrix(static_cast<float>(glfwGetTime()));
-        renderCubeViewport(cube, meshShader, cubeModel);
+        cubeModel = createCubeModelMatrix(static_cast<float>(glfwGetTime()));
+
+        glDisable(GL_SCISSOR_TEST);
+        executor.executeStage(shadowsStage, forwardResources);
+
+        configureLeftViewport();
+        executor.executeStage(geometryStage, forwardResources);
+        glDisable(GL_SCISSOR_TEST);
+        glDisable(GL_DEPTH_TEST);
+
         renderDensitySlice(sliceShader, quad, glm::inverse(cubeModel));
 
-        executor.executeStage(combineStage, resources);
+        executor.executeStage(combineStage, ultrasoundResources);
         Framebuffer::unbind();
 
         int framebufferWidth = WindowWidth;

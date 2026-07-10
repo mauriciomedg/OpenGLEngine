@@ -31,6 +31,29 @@ PipelineCommand parseBindBuffer(const tinyxml2::XMLElement& element)
     return command;
 }
 
+PipelineCommand parseClearTarget(const tinyxml2::XMLElement& element)
+{
+    PipelineCommand command;
+    command.type = PipelineCommandType::ClearTarget;
+    element.QueryBoolAttribute("depthBuf", &command.clearDepth);
+    element.QueryBoolAttribute("colBuf0", &command.clearColor0);
+    element.QueryFloatAttribute("col_R", &command.clearR);
+    element.QueryFloatAttribute("col_G", &command.clearG);
+    element.QueryFloatAttribute("col_B", &command.clearB);
+    element.QueryFloatAttribute("col_A", &command.clearA);
+    element.QueryFloatAttribute("depth", &command.clearDepthValue);
+    return command;
+}
+
+PipelineCommand parseDrawGeometry(const tinyxml2::XMLElement& element)
+{
+    PipelineCommand command;
+    command.type = PipelineCommandType::DrawGeometry;
+    command.context = attributeOrEmpty(element, "context");
+    command.cullFrustum = attributeOrEmpty(element, "cullFrustum");
+    return command;
+}
+
 PipelineCommand parseDrawQuad(const tinyxml2::XMLElement& element)
 {
     PipelineCommand command;
@@ -53,8 +76,12 @@ const char* commandTypeName(PipelineCommandType type)
     {
     case PipelineCommandType::SwitchTarget:
         return "SwitchTarget";
+    case PipelineCommandType::ClearTarget:
+        return "ClearTarget";
     case PipelineCommandType::BindBuffer:
         return "BindBuffer";
+    case PipelineCommandType::DrawGeometry:
+        return "DrawGeometry";
     case PipelineCommandType::DrawQuad:
         return "DrawQuad";
     case PipelineCommandType::UnbindBuffers:
@@ -96,6 +123,12 @@ void printPipelineCommands(const std::vector<PipelineStage>& stages)
                 std::cout << " bufIndex=" << command.bufIndex;
             }
 
+            if (command.type == PipelineCommandType::ClearTarget)
+            {
+                std::cout << " color=" << (command.clearColor0 ? "true" : "false")
+                          << " depth=" << (command.clearDepth ? "true" : "false");
+            }
+
             if (!command.material.empty())
             {
                 std::cout << " material=\"" << command.material << "\"";
@@ -104,6 +137,11 @@ void printPipelineCommands(const std::vector<PipelineStage>& stages)
             if (!command.context.empty())
             {
                 std::cout << " context=\"" << command.context << "\"";
+            }
+
+            if (!command.cullFrustum.empty())
+            {
+                std::cout << " cullFrustum=\"" << command.cullFrustum << "\"";
             }
 
             std::cout << '\n';
@@ -153,9 +191,17 @@ std::vector<PipelineStage> PipelineParser::load(const std::string& path) const
             {
                 stage.commands.push_back(parseSwitchTarget(*commandElement));
             }
+            else if (commandName == "ClearTarget")
+            {
+                stage.commands.push_back(parseClearTarget(*commandElement));
+            }
             else if (commandName == "BindBuffer")
             {
                 stage.commands.push_back(parseBindBuffer(*commandElement));
+            }
+            else if (commandName == "DrawGeometry")
+            {
+                stage.commands.push_back(parseDrawGeometry(*commandElement));
             }
             else if (commandName == "DrawQuad")
             {

@@ -32,9 +32,35 @@ void bindTextureId(unsigned int textureId, unsigned int unit)
     glBindTexture(GL_TEXTURE_2D, textureId);
 }
 
+void validateTextureUnit(int unit)
+{
+    int maxUnits = 0;
+    glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxUnits);
+    if (unit < 0 || unit >= maxUnits)
+    {
+        throw std::runtime_error("Pipeline texture unit out of range: " + std::to_string(unit));
+    }
+}
+
+unsigned int renderTargetTextureId(const Framebuffer& renderTarget)
+{
+    if (renderTarget.textureId() != 0)
+    {
+        return renderTarget.textureId();
+    }
+
+    if (renderTarget.depthTextureId() != 0)
+    {
+        return renderTarget.depthTextureId();
+    }
+
+    throw std::runtime_error("Pipeline render target has no bindable texture.");
+}
+
 void applyBindBuffer(const PipelineCommand& command, const PipelineResources& resources, Shader& shader, int& maxBoundUnit)
 {
     const int unit = command.bufIndex;
+    validateTextureUnit(unit);
 
     shader.setInt(command.sampler.c_str(), unit);
 
@@ -49,13 +75,72 @@ void applyBindBuffer(const PipelineCommand& command, const PipelineResources& re
     else
     {
         const Framebuffer* renderTarget = findResource(resources.renderTargets, command.sourceRT, "render target texture");
-        bindTextureId(renderTarget->textureId(), static_cast<unsigned int>(unit));
+        bindTextureId(renderTargetTextureId(*renderTarget), static_cast<unsigned int>(unit));
         std::cout << "[XML] BindBuffer " << command.sampler << "/" << command.sourceRT
                   << " unit " << unit
                   << " -> bind render target texture\n";
     }
 
     maxBoundUnit = std::max(maxBoundUnit, unit);
+}
+
+void clearTarget(const PipelineCommand& command)
+{
+    GLbitfield clearMask = 0;
+
+    if (command.clearDepth)
+    {
+        glClearDepth(command.clearDepthValue);
+        clearMask |= GL_DEPTH_BUFFER_BIT;
+    }
+
+    if (command.clearColor0)
+    {
+        glClearColor(command.clearR, command.clearG, command.clearB, command.clearA);
+        clearMask |= GL_COLOR_BUFFER_BIT;
+    }
+
+    if (clearMask != 0)
+    {
+        glClear(clearMask);
+    }
+
+    std::cout << "[XML] ClearTarget color=" << (command.clearColor0 ? "true" : "false")
+              << " depth=" << (command.clearDepth ? "true" : "false")
+              << " -> glClearColor/glClearDepth/glClear\n";
+}
+
+void drawGeometry(
+    const PipelineCommand& command,
+    const PipelineResources& resources,
+    std::vector<const PipelineCommand*>& pendingBindBuffers,
+    int& maxBoundUnit)
+{
+    const auto shader = resources.shaders.find(command.context);
+    if (shader != resources.shaders.end() && shader->second != nullptr)
+    {
+        shader->second->use();
+
+        for (const PipelineCommand* bindBuffer : pendingBindBuffers)
+        {
+            applyBindBuffer(*bindBuffer, resources, *shader->second, maxBoundUnit);
+        }
+
+        pendingBindBuffers.clear();
+    }
+
+    const auto draw = resources.geometryDraws.find(command.context);
+    if (draw != resources.geometryDraws.end())
+    {
+        draw->second();
+        std::cout << "[XML] DrawGeometry context " << command.context
+                  << " -> geometry callback -> glDrawElements\n";
+    }
+    else
+    {
+        std::cout << "[XML] DrawGeometry context " << command.context
+                  << " -> no registered callback\n";
+    }
 }
 }
 
@@ -68,11 +153,6 @@ void PipelineExecutor::executeStage(
         return;
     }
 
-    if (resources.quad == nullptr)
-    {
-        throw std::runtime_error("Pipeline missing fullscreen quad.");
-    }
-
     std::vector<const PipelineCommand*> pendingBindBuffers;
     int maxBoundUnit = -1;
 
@@ -82,17 +162,28 @@ void PipelineExecutor::executeStage(
         {
         case PipelineCommandType::SwitchTarget:
         {
-            Framebuffer* target = findResource(resources.renderTargets, command.target, "render target");
-            target->bind();
-            glClearColor(0.02f, 0.03f, 0.04f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
-
-            std::cout << "[XML] SwitchTarget " << command.target
-                      << " -> glBindFramebuffer + glViewport\n";
+            if (command.target.empty())
+            {
+                Framebuffer::unbind();
+                std::cout << "[XML] SwitchTarget default -> glBindFramebuffer\n";
+            }
+            else
+            {
+                Framebuffer* target = findResource(resources.renderTargets, command.target, "render target");
+                target->bind();
+                std::cout << "[XML] SwitchTarget " << command.target
+                          << " -> glBindFramebuffer + glViewport\n";
+            }
             break;
         }
+        case PipelineCommandType::ClearTarget:
+            clearTarget(command);
+            break;
         case PipelineCommandType::BindBuffer:
             pendingBindBuffers.push_back(&command);
+            break;
+        case PipelineCommandType::DrawGeometry:
+            drawGeometry(command, resources, pendingBindBuffers, maxBoundUnit);
             break;
         case PipelineCommandType::DrawQuad:
         {
@@ -105,6 +196,11 @@ void PipelineExecutor::executeStage(
             }
 
             pendingBindBuffers.clear();
+            if (resources.quad == nullptr)
+            {
+                throw std::runtime_error("Pipeline missing fullscreen quad.");
+            }
+
             resources.quad->draw();
 
             std::cout << "[XML] DrawQuad context " << command.context

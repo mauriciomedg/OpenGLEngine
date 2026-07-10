@@ -2,6 +2,7 @@
 
 #include "PipelineParser.h"
 
+#include <functional>
 #include <string>
 #include <unordered_map>
 
@@ -15,6 +16,7 @@ struct PipelineResources
     std::unordered_map<std::string, Framebuffer*> renderTargets;
     std::unordered_map<std::string, const Texture2D*> textures;
     std::unordered_map<std::string, Shader*> shaders;
+    std::unordered_map<std::string, std::function<void()>> geometryDraws;
 
     FullscreenQuad* quad = nullptr;
 };
