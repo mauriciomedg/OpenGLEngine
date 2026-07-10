@@ -267,6 +267,8 @@ App::App()
     glViewport(0, 0, WindowWidth, WindowHeight);
     createRenderTargets();
     createProceduralInputTextures();
+
+    camera_ = std::make_unique<Camera>();
 }
 
 App::~App()
@@ -320,7 +322,7 @@ void App::renderCubeViewport(Mesh& cube, Shader& meshShader) const
     glClearColor(0.04f, 0.05f, 0.07f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    Camera camera(static_cast<float>(leftWidth) / static_cast<float>(framebufferHeight));
+    camera_->setAspectRatio(static_cast<float>(leftWidth) / static_cast<float>(framebufferHeight));
     const float time = static_cast<float>(glfwGetTime());
     glm::mat4 model(1.0f);
     model = glm::rotate(model, time * 0.85f, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -328,8 +330,8 @@ void App::renderCubeViewport(Mesh& cube, Shader& meshShader) const
 
     meshShader.use();
     meshShader.setMat4("uModel", model);
-    meshShader.setMat4("uView", camera.viewMatrix());
-    meshShader.setMat4("uProjection", camera.projectionMatrix());
+    meshShader.setMat4("uView", camera_->viewMatrix());
+    meshShader.setMat4("uProjection", camera_->projectionMatrix());
     cube.draw();
 
     glDisable(GL_DEPTH_TEST);
@@ -384,6 +386,8 @@ int App::run()
     {
         glfwPollEvents();
 
+        renderCubeViewport(cube, meshShader);
+
         executor.executeStage(combineStage, resources);
         Framebuffer::unbind();
 
@@ -393,7 +397,6 @@ int App::run()
         const int leftWidth = framebufferWidth / 2;
         const int rightWidth = framebufferWidth - leftWidth;
 
-        renderCubeViewport(cube, meshShader);
         presentTexture(combineTarget_->textureId(), presentShader, quad, leftWidth, 0, rightWidth, framebufferHeight);
 
         glfwSwapBuffers(window_);

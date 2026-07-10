@@ -6,6 +6,7 @@
 class Camera
 {
 public:
+    Camera() = default;
     Camera(float aspectRatio);
 
     glm::mat4 viewMatrix() const;

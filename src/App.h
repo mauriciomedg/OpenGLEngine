@@ -8,6 +8,7 @@ class FullscreenQuad;
 class Mesh;
 class Shader;
 class Texture2D;
+class Camera;
 
 class App
 {
@@ -27,6 +28,8 @@ private:
     void presentTexture(unsigned int textureId, Shader& presentShader, FullscreenQuad& quad, int x, int y, int width, int height) const;
 
     GLFWwindow* window_ = nullptr;
+    std::unique_ptr<Camera> camera_;
+
     std::unique_ptr<Framebuffer> combineTarget_;
     std::unique_ptr<Texture2D> densityTexture_;
     std::unique_ptr<Texture2D> noiseTexture_;
