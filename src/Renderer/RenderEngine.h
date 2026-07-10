@@ -35,10 +35,10 @@ private:
     void createScene();
     void registerResources();
     void registerGeometryCallbacks();
+    void registerShaderSetups();
 
     void updateFrameState(float timeSeconds);
     void configureLeftViewport();
-    void renderDensitySlice();
     void presentUltrasound();
 
     int framebufferWidth_ = 0;
@@ -69,9 +69,11 @@ private:
     RendererResources resources_;
 
     std::vector<PipelineStage> forwardStages_;
+    std::vector<PipelineStage> sliceStages_;
     std::vector<PipelineStage> ultrasoundStages_;
     const PipelineStage* shadowsStage_ = nullptr;
     const PipelineStage* geometryStage_ = nullptr;
+    const PipelineStage* sliceStage_ = nullptr;
     const PipelineStage* combineStage_ = nullptr;
 
     glm::mat4 cubeModel_{1.0f};

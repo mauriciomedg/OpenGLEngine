@@ -162,6 +162,7 @@ RenderEngine::RenderEngine(int initialWindowWidth, int initialWindowHeight)
     createScene();
     registerResources();
     registerGeometryCallbacks();
+    registerShaderSetups();
 }
 
 RenderEngine::~RenderEngine() = default;
@@ -180,10 +181,12 @@ void RenderEngine::resize(int framebufferWidth, int framebufferHeight)
 void RenderEngine::loadPipelines()
 {
     forwardStages_ = pipelineParser_.load(pipelinePath("forward.pipeline.xml"));
+    sliceStages_ = pipelineParser_.load(pipelinePath("slice.pipeline.xml"));
     ultrasoundStages_ = pipelineParser_.load(pipelinePath("ultrasound.pipeline.xml"));
 
     shadowsStage_ = &findPipelineStage(forwardStages_, "Shadows");
     geometryStage_ = &findPipelineStage(forwardStages_, "Geometry");
+    sliceStage_ = &findPipelineStage(sliceStages_, "Slice");
     combineStage_ = &findPipelineStage(ultrasoundStages_, "Combine");
 }
 
@@ -244,6 +247,7 @@ void RenderEngine::registerResources()
 
     resources_.shaders["SHADOWS"] = shadowShader_.get();
     resources_.shaders["LIGHTING"] = meshShader_.get();
+    resources_.shaders["SLICE"] = sliceShader_.get();
     resources_.shaders["UBER"] = combineShader_.get();
 
     resources_.quad = fullscreenQuad_.get();
@@ -273,6 +277,16 @@ void RenderEngine::registerGeometryCallbacks()
         };
 }
 
+void RenderEngine::registerShaderSetups()
+{
+    resources_.shaderSetups["SLICE"] =
+        [this](Shader& shader)
+        {
+            shader.setMat4("uInverseModel", inverseCubeModel_);
+            shader.setFloat("uSliceZ", 0.0f);
+        };
+}
+
 void RenderEngine::updateFrameState(float timeSeconds)
 {
     cubeModel_ = createCubeModelMatrix(timeSeconds);
@@ -292,21 +306,6 @@ void RenderEngine::configureLeftViewport()
     glEnable(GL_SCISSOR_TEST);
     glViewport(0, 0, leftWidth, framebufferHeight_);
     glScissor(0, 0, leftWidth, framebufferHeight_);
-}
-
-void RenderEngine::renderDensitySlice()
-{
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_SCISSOR_TEST);
-
-    densityTarget_->bind();
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    sliceShader_->use();
-    sliceShader_->setMat4("uInverseModel", inverseCubeModel_);
-    sliceShader_->setFloat("uSliceZ", 0.0f);
-    fullscreenQuad_->draw();
 }
 
 void RenderEngine::presentUltrasound()
@@ -347,7 +346,7 @@ void RenderEngine::renderFrame(float timeSeconds)
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
 
-    renderDensitySlice();
+    pipelineExecutor_.executeStage(*sliceStage_, resources_);
 
     pipelineExecutor_.executeStage(*combineStage_, resources_);
 

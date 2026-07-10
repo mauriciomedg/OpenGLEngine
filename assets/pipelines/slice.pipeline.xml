@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Pipeline name="SlicePrototype">
+  <CommandQueue>
+    <Stage id="Slice" enabled="1">
+      <SwitchTarget target="DENSITY" />
+      <ClearTarget
+          colBuf0="true"
+          col_R="0.0"
+          col_G="0.0"
+          col_B="0.0"
+          col_A="1.0" />
+      <DrawQuad context="SLICE" />
+    </Stage>
+  </CommandQueue>
+</Pipeline>

@@ -17,6 +17,7 @@ struct RendererResources
     std::unordered_map<std::string, const Texture2D*> textures;
     std::unordered_map<std::string, Shader*> shaders;
     std::unordered_map<std::string, std::function<void()>> geometryDraws;
+    std::unordered_map<std::string, std::function<void(Shader&)>> shaderSetups;
 
     FullscreenQuad* quad = nullptr;
 };

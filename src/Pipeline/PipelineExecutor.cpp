@@ -142,6 +142,18 @@ void drawGeometry(
                   << " -> no registered callback\n";
     }
 }
+
+bool applyShaderSetup(const std::string& context, const RendererResources& resources, Shader& shader)
+{
+    const auto setup = resources.shaderSetups.find(context);
+    if (setup == resources.shaderSetups.end())
+    {
+        return false;
+    }
+
+    setup->second(shader);
+    return true;
+}
 }
 
 void PipelineExecutor::executeStage(
@@ -189,6 +201,7 @@ void PipelineExecutor::executeStage(
         {
             Shader* shader = findResource(resources.shaders, command.context, "shader");
             shader->use();
+            const bool setupApplied = applyShaderSetup(command.context, resources, *shader);
 
             for (const PipelineCommand* bindBuffer : pendingBindBuffers)
             {
@@ -204,7 +217,9 @@ void PipelineExecutor::executeStage(
             resources.quad->draw();
 
             std::cout << "[XML] DrawQuad context " << command.context
-                      << " -> glUseProgram + glDrawArrays\n";
+                      << " -> glUseProgram"
+                      << (setupApplied ? " + setup uniforms" : "")
+                      << " + glDrawArrays\n";
             break;
         }
         case PipelineCommandType::UnbindBuffers:
