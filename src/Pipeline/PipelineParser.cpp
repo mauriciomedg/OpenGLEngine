@@ -3,6 +3,7 @@
 #include <tinyxml2.h>
 
 #include <stdexcept>
+#include <iostream>
 
 namespace
 {
@@ -45,6 +46,71 @@ PipelineCommand parseUnbindBuffers()
     command.type = PipelineCommandType::UnbindBuffers;
     return command;
 }
+
+const char* commandTypeName(PipelineCommandType type)
+{
+    switch (type)
+    {
+    case PipelineCommandType::SwitchTarget:
+        return "SwitchTarget";
+    case PipelineCommandType::BindBuffer:
+        return "BindBuffer";
+    case PipelineCommandType::DrawQuad:
+        return "DrawQuad";
+    case PipelineCommandType::UnbindBuffers:
+        return "UnbindBuffers";
+    }
+
+    return "Unknown";
+}
+
+void printPipelineCommands(const std::vector<PipelineStage>& stages)
+{
+    std::cout << "Parsed pipeline stages:\n";
+
+    for (const PipelineStage& stage : stages)
+    {
+        std::cout << "  Stage id=\"" << stage.id << "\" enabled=" << (stage.enabled ? "true" : "false") << '\n';
+
+        for (const PipelineCommand& command : stage.commands)
+        {
+            std::cout << "    " << commandTypeName(command.type);
+
+            if (!command.target.empty())
+            {
+                std::cout << " target=\"" << command.target << "\"";
+            }
+
+            if (!command.sampler.empty())
+            {
+                std::cout << " sampler=\"" << command.sampler << "\"";
+            }
+
+            if (!command.sourceRT.empty())
+            {
+                std::cout << " sourceRT=\"" << command.sourceRT << "\"";
+            }
+
+            if (command.type == PipelineCommandType::BindBuffer)
+            {
+                std::cout << " bufIndex=" << command.bufIndex;
+            }
+
+            if (!command.material.empty())
+            {
+                std::cout << " material=\"" << command.material << "\"";
+            }
+
+            if (!command.context.empty())
+            {
+                std::cout << " context=\"" << command.context << "\"";
+            }
+
+            std::cout << '\n';
+        }
+    }
+}
+
 }
 
 std::vector<PipelineStage> PipelineParser::load(const std::string& path) const
@@ -103,6 +169,8 @@ std::vector<PipelineStage> PipelineParser::load(const std::string& path) const
 
         stages.push_back(stage);
     }
+
+    printPipelineCommands(stages);
 
     return stages;
 }
