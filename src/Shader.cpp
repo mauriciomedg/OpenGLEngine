@@ -1,6 +1,7 @@
 #include "Shader.h"
 
 #include <glad/glad.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <fstream>
 #include <sstream>
@@ -88,6 +89,28 @@ void Shader::setInt(const char* name, int value) const
     }
 
     glUniform1i(location, value);
+}
+
+void Shader::setMat4(const char* name, const glm::mat4& value) const
+{
+    const int location = glGetUniformLocation(program_, name);
+    if (location == -1)
+    {
+        throw std::runtime_error(std::string("Uniform not found: ") + name);
+    }
+
+    glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
+}
+
+void Shader::setVec3(const char* name, const glm::vec3& value) const
+{
+    const int location = glGetUniformLocation(program_, name);
+    if (location == -1)
+    {
+        throw std::runtime_error(std::string("Uniform not found: ") + name);
+    }
+
+    glUniform3fv(location, 1, glm::value_ptr(value));
 }
 
 void Shader::use() const

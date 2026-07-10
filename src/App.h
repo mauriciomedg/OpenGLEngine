@@ -5,6 +5,7 @@
 struct GLFWwindow;
 class Framebuffer;
 class FullscreenQuad;
+class Mesh;
 class Shader;
 class Texture2D;
 
@@ -22,7 +23,8 @@ public:
 private:
     void createRenderTargets();
     void createProceduralInputTextures();
-    void presentTexture(unsigned int textureId, Shader& presentShader, FullscreenQuad& quad) const;
+    void renderCubeViewport(Mesh& cube, Shader& meshShader) const;
+    void presentTexture(unsigned int textureId, Shader& presentShader, FullscreenQuad& quad, int x, int y, int width, int height) const;
 
     GLFWwindow* window_ = nullptr;
     std::unique_ptr<Framebuffer> combineTarget_;

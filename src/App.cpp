@@ -3,12 +3,15 @@
 #include "FullscreenQuad.h"
 #include "Pipeline/PipelineExecutor.h"
 #include "Pipeline/PipelineParser.h"
+#include "Renderer/Camera.h"
 #include "Renderer/Framebuffer.h"
+#include "Renderer/Mesh.h"
 #include "Renderer/Texture2D.h"
 #include "Shader.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/ext/matrix_transform.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -303,13 +306,42 @@ void App::createProceduralInputTextures()
     echoMaskTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, echoMaskData.data());
 }
 
-void App::presentTexture(unsigned int textureId, Shader& presentShader, FullscreenQuad& quad) const
+void App::renderCubeViewport(Mesh& cube, Shader& meshShader) const
 {
     int framebufferWidth = WindowWidth;
     int framebufferHeight = WindowHeight;
     glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
+    const int leftWidth = framebufferWidth / 2;
 
-    glViewport(0, 0, framebufferWidth, framebufferHeight);
+    glEnable(GL_SCISSOR_TEST);
+    glViewport(0, 0, leftWidth, framebufferHeight);
+    glScissor(0, 0, leftWidth, framebufferHeight);
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(0.04f, 0.05f, 0.07f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    Camera camera(static_cast<float>(leftWidth) / static_cast<float>(framebufferHeight));
+    const float time = static_cast<float>(glfwGetTime());
+    glm::mat4 model(1.0f);
+    model = glm::rotate(model, time * 0.85f, glm::vec3(0.0f, 1.0f, 0.0f));
+    model = glm::rotate(model, time * 0.45f, glm::vec3(1.0f, 0.0f, 0.0f));
+
+    meshShader.use();
+    meshShader.setMat4("uModel", model);
+    meshShader.setMat4("uView", camera.viewMatrix());
+    meshShader.setMat4("uProjection", camera.projectionMatrix());
+    cube.draw();
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_SCISSOR_TEST);
+}
+
+void App::presentTexture(unsigned int textureId, Shader& presentShader, FullscreenQuad& quad, int x, int y, int width, int height) const
+{
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_SCISSOR_TEST);
+    glViewport(x, y, width, height);
+    glScissor(x, y, width, height);
     glClearColor(0.02f, 0.03f, 0.04f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -322,6 +354,7 @@ void App::presentTexture(unsigned int textureId, Shader& presentShader, Fullscre
     quad.draw();
 
     glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_SCISSOR_TEST);
 }
 
 int App::run()
@@ -333,7 +366,9 @@ int App::run()
 
     Shader combineShader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
     Shader presentShader(shaderPath("fullscreen.vert"), shaderPath("present.frag"));
+    Shader meshShader(shaderPath("mesh.vert"), shaderPath("mesh.frag"));
     FullscreenQuad quad;
+    Mesh cube = Mesh::createCube();
     PipelineExecutor executor;
     PipelineResources resources;
     resources.renderTargets["COMBINE"] = combineTarget_.get();
@@ -351,7 +386,15 @@ int App::run()
 
         executor.executeStage(combineStage, resources);
         Framebuffer::unbind();
-        presentTexture(combineTarget_->textureId(), presentShader, quad);
+
+        int framebufferWidth = WindowWidth;
+        int framebufferHeight = WindowHeight;
+        glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
+        const int leftWidth = framebufferWidth / 2;
+        const int rightWidth = framebufferWidth - leftWidth;
+
+        renderCubeViewport(cube, meshShader);
+        presentTexture(combineTarget_->textureId(), presentShader, quad, leftWidth, 0, rightWidth, framebufferHeight);
 
         glfwSwapBuffers(window_);
     }
