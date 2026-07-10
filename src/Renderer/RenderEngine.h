@@ -2,6 +2,7 @@
 
 #include "../Pipeline/PipelineExecutor.h"
 #include "../Pipeline/PipelineParser.h"
+#include "../Material/MaterialManager.h"
 
 #include <glm/mat4x4.hpp>
 
@@ -55,9 +56,7 @@ private:
     std::unique_ptr<Texture2D> lungsTexture_;
     std::unique_ptr<Texture2D> echoMaskTexture_;
 
-    std::unique_ptr<Shader> combineShader_;
     std::unique_ptr<Shader> presentShader_;
-    std::unique_ptr<Shader> sliceShader_;
     std::unique_ptr<Shader> meshShader_;
     std::unique_ptr<Shader> shadowShader_;
 
@@ -66,6 +65,7 @@ private:
 
     PipelineParser pipelineParser_;
     PipelineExecutor pipelineExecutor_;
+    MaterialManager materialManager_;
     RendererResources resources_;
 
     std::vector<PipelineStage> forwardStages_;

@@ -1,6 +1,7 @@
 #include "PipelineExecutor.h"
 
 #include "../FullscreenQuad.h"
+#include "../Material/Material.h"
 #include "../Renderer/Framebuffer.h"
 #include "../Renderer/Texture2D.h"
 #include "../Shader.h"
@@ -199,13 +200,24 @@ void PipelineExecutor::executeStage(
             break;
         case PipelineCommandType::DrawQuad:
         {
-            Shader* shader = findResource(resources.shaders, command.context, "shader");
-            shader->use();
-            const bool setupApplied = applyShaderSetup(command.context, resources, *shader);
+            if (command.material.empty())
+            {
+                throw std::runtime_error("Pipeline DrawQuad is missing material path.");
+            }
+
+            if (command.context.empty())
+            {
+                throw std::runtime_error("Pipeline DrawQuad is missing context for material: " + command.material);
+            }
+
+            Material* material = findResource(resources.materials, command.material, "material");
+            Shader& shader = material->shader();
+            shader.use();
+            const bool setupApplied = applyShaderSetup(command.context, resources, shader);
 
             for (const PipelineCommand* bindBuffer : pendingBindBuffers)
             {
-                applyBindBuffer(*bindBuffer, resources, *shader, maxBoundUnit);
+                applyBindBuffer(*bindBuffer, resources, shader, maxBoundUnit);
             }
 
             pendingBindBuffers.clear();
@@ -216,8 +228,9 @@ void PipelineExecutor::executeStage(
 
             resources.quad->draw();
 
-            std::cout << "[XML] DrawQuad context " << command.context
-                      << " -> glUseProgram"
+            std::cout << "[XML] DrawQuad material " << command.material
+                      << " context " << command.context
+                      << " -> Material -> Shader -> glUseProgram"
                       << (setupApplied ? " + setup uniforms" : "")
                       << " + glDrawArrays\n";
             break;

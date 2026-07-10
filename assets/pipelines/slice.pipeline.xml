@@ -9,7 +9,7 @@
           col_G="0.0"
           col_B="0.0"
           col_A="1.0" />
-      <DrawQuad context="SLICE" />
+      <DrawQuad material="materials/slice.material.xml" context="SLICE" />
     </Stage>
   </CommandQueue>
 </Pipeline>

@@ -19,6 +19,10 @@ add_executable(OpenGLEngine
     src/Shader.cpp
     src/FullscreenQuad.h
     src/FullscreenQuad.cpp
+    src/Material/Material.h
+    src/Material/Material.cpp
+    src/Material/MaterialManager.h
+    src/Material/MaterialManager.cpp
     src/Pipeline/PipelineExecutor.h
     src/Pipeline/PipelineExecutor.cpp
     src/Pipeline/PipelineParser.h

@@ -31,6 +31,11 @@ std::string shaderPath(const char* fileName)
     return std::string(ASSET_ROOT) + "/shaders/" + fileName;
 }
 
+std::string assetPath(const char* relativePath)
+{
+    return std::string(ASSET_ROOT) + "/" + relativePath;
+}
+
 std::string pipelinePath(const char* fileName)
 {
     return std::string(ASSET_ROOT) + "/pipelines/" + fileName;
@@ -192,9 +197,7 @@ void RenderEngine::loadPipelines()
 
 void RenderEngine::createShaders()
 {
-    combineShader_ = std::make_unique<Shader>(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
     presentShader_ = std::make_unique<Shader>(shaderPath("fullscreen.vert"), shaderPath("present.frag"));
-    sliceShader_ = std::make_unique<Shader>(shaderPath("fullscreen.vert"), shaderPath("slice_cube.frag"));
     meshShader_ = std::make_unique<Shader>(shaderPath("mesh.vert"), shaderPath("mesh.frag"));
     shadowShader_ = std::make_unique<Shader>(shaderPath("shadow_depth.vert"), shaderPath("shadow_depth.frag"));
 }
@@ -245,10 +248,13 @@ void RenderEngine::registerResources()
     resources_.textures["LUNGS_IN"] = lungsTexture_.get();
     resources_.textures["ECHOMASK"] = echoMaskTexture_.get();
 
+    Material& ultrasoundMaterial = materialManager_.load(assetPath("materials/ultrasound.material.xml"));
+    Material& sliceMaterial = materialManager_.load(assetPath("materials/slice.material.xml"));
+    resources_.materials["materials/ultrasound.material.xml"] = &ultrasoundMaterial;
+    resources_.materials["materials/slice.material.xml"] = &sliceMaterial;
+
     resources_.shaders["SHADOWS"] = shadowShader_.get();
     resources_.shaders["LIGHTING"] = meshShader_.get();
-    resources_.shaders["SLICE"] = sliceShader_.get();
-    resources_.shaders["UBER"] = combineShader_.get();
 
     resources_.quad = fullscreenQuad_.get();
 }
