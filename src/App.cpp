@@ -1,162 +1,19 @@
 #include "App.h"
 
-#include "FullscreenQuad.h"
-#include "Pipeline/PipelineExecutor.h"
-#include "Pipeline/PipelineParser.h"
-#include "Renderer/Camera.h"
-#include "Renderer/Framebuffer.h"
-#include "Renderer/Mesh.h"
-#include "Renderer/Texture2D.h"
-#include "Shader.h"
+#include "Renderer/RenderEngine.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/matrix.hpp>
 
-#include <algorithm>
-#include <cmath>
-#include <iostream>
-#include <random>
 #include <stdexcept>
-#include <string>
-#include <vector>
 
 namespace
 {
 constexpr int WindowWidth = 1024;
 constexpr int WindowHeight = 1024;
-constexpr int ProceduralTextureSize = 256;
-constexpr float Pi = 3.14159265358979323846f;
 
-std::string shaderPath(const char* fileName)
+void framebufferSizeCallback(GLFWwindow*, int, int)
 {
-    return std::string(ASSET_ROOT) + "/shaders/" + fileName;
-}
-
-std::string pipelinePath(const char* fileName)
-{
-    return std::string(ASSET_ROOT) + "/pipelines/" + fileName;
-}
-
-const PipelineStage& findPipelineStage(const std::vector<PipelineStage>& stages, const std::string& id)
-{
-    const auto found = std::find_if(
-        stages.begin(),
-        stages.end(),
-        [&id](const PipelineStage& stage)
-        {
-            return stage.id == id;
-        });
-
-    if (found == stages.end())
-    {
-        throw std::runtime_error("Pipeline stage not found: " + id);
-    }
-
-    return *found;
-}
-
-void framebufferSizeCallback(GLFWwindow*, int width, int height)
-{
-    glViewport(0, 0, width, height);
-}
-
-float normalizedCoord(int value, int size)
-{
-    return (static_cast<float>(value) + 0.5f) / static_cast<float>(size);
-}
-
-glm::mat4 createCubeModelMatrix(float time)
-{
-    glm::mat4 model(1.0f);
-    model = glm::rotate(model, time * 0.85f, glm::vec3(0.0f, 1.0f, 0.0f));
-    model = glm::rotate(model, time * 0.45f, glm::vec3(1.0f, 0.0f, 0.0f));
-    return model;
-}
-
-std::vector<float> createNoiseTexture(int width, int height)
-{
-    std::vector<float> data(width * height);
-    std::mt19937 rng(1337);
-    std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
-
-    for (float& value : data)
-    {
-        value = distribution(rng);
-    }
-
-    return data;
-}
-
-std::vector<float> createMetalTexture(int width, int height)
-{
-    std::vector<float> data(width * height, 0.0f);
-    const float lineCenter = 0.64f;
-    const float lineWidth = 0.008f;
-
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            const float u = normalizedCoord(x, width);
-            const float distance = std::abs(u - lineCenter);
-            data[y * width + x] = distance < lineWidth ? 1.0f : 0.0f;
-        }
-    }
-
-    return data;
-}
-
-std::vector<float> createLungsTexture(int width, int height)
-{
-    std::vector<float> data(width * height, 1.0f);
-
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            const float u = normalizedCoord(x, width);
-            const float v = normalizedCoord(y, height);
-            const float dx = u - 0.5f;
-            const float dy = v - 0.58f;
-            const float distance = std::sqrt(dx * dx + dy * dy);
-            const float darkRegion = 1.0f - std::clamp((distance - 0.22f) / 0.04f, 0.0f, 1.0f);
-            data[y * width + x] = 1.0f - darkRegion * 0.92f;
-        }
-    }
-
-    return data;
-}
-
-std::vector<float> createEchoMaskTexture(int width, int height)
-{
-    std::vector<float> data(width * height, 0.0f);
-    const float halfAngle = 32.0f * Pi / 180.0f;
-
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            const float u = normalizedCoord(x, width);
-            const float v = normalizedCoord(y, height);
-            const float dx = u - 0.5f;
-            const float dy = v - 0.06f;
-
-            if (dy <= 0.0f)
-            {
-                continue;
-            }
-
-            const float angle = std::abs(std::atan2(dx, dy));
-            const float radius = std::sqrt(dx * dx + dy * dy);
-            const bool insideSector = angle <= halfAngle && radius <= 0.92f;
-            data[y * width + x] = insideSector ? 1.0f : 0.0f;
-        }
-    }
-
-    return data;
 }
 }
 
@@ -190,22 +47,15 @@ App::App()
         throw std::runtime_error("Failed to initialize GLAD.");
     }
 
-    glViewport(0, 0, WindowWidth, WindowHeight);
-    createRenderTargets();
-    createProceduralInputTextures();
-
-    camera_ = std::make_unique<Camera>();
+    int framebufferWidth = WindowWidth;
+    int framebufferHeight = WindowHeight;
+    glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
+    renderEngine_ = std::make_unique<RenderEngine>(framebufferWidth, framebufferHeight);
 }
 
 App::~App()
 {
-    shadowTarget_.reset();
-    densityTarget_.reset();
-    combineTarget_.reset();
-    echoMaskTexture_.reset();
-    lungsTexture_.reset();
-    metalTexture_.reset();
-    noiseTexture_.reset();
+    renderEngine_.reset();
 
     if (window_)
     {
@@ -215,164 +65,18 @@ App::~App()
     glfwTerminate();
 }
 
-void App::createRenderTargets()
-{
-    shadowTarget_ = std::make_unique<Framebuffer>(FramebufferDesc{
-        1024,
-        1024,
-        false,
-        true,
-        FramebufferFormat::Depth32F});
-    densityTarget_ = std::make_unique<Framebuffer>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F);
-    combineTarget_ = std::make_unique<Framebuffer>(WindowWidth, WindowHeight, FramebufferFormat::RGBA8);
-}
-
-void App::createProceduralInputTextures()
-{
-    const std::vector<float> noiseData = createNoiseTexture(ProceduralTextureSize, ProceduralTextureSize);
-    const std::vector<float> metalData = createMetalTexture(ProceduralTextureSize, ProceduralTextureSize);
-    const std::vector<float> lungsData = createLungsTexture(ProceduralTextureSize, ProceduralTextureSize);
-    const std::vector<float> echoMaskData = createEchoMaskTexture(ProceduralTextureSize, ProceduralTextureSize);
-
-    noiseTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, noiseData.data());
-    metalTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, metalData.data());
-    lungsTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, lungsData.data());
-    echoMaskTexture_ = std::make_unique<Texture2D>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F, echoMaskData.data());
-}
-
-void App::configureLeftViewport() const
-{
-    int framebufferWidth = WindowWidth;
-    int framebufferHeight = WindowHeight;
-    glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
-    const int leftWidth = framebufferWidth / 2;
-
-    glEnable(GL_SCISSOR_TEST);
-    glViewport(0, 0, leftWidth, framebufferHeight);
-    glScissor(0, 0, leftWidth, framebufferHeight);
-    camera_->setAspectRatio(static_cast<float>(leftWidth) / static_cast<float>(framebufferHeight));
-}
-
-void App::renderDensitySlice(Shader& sliceShader, FullscreenQuad& quad, const glm::mat4& inverseModel) const
-{
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_SCISSOR_TEST);
-
-    densityTarget_->bind();
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    sliceShader.use();
-    sliceShader.setMat4("uInverseModel", inverseModel);
-    sliceShader.setFloat("uSliceZ", 0.0f);
-    quad.draw();
-}
-
-void App::presentTexture(unsigned int textureId, Shader& presentShader, FullscreenQuad& quad, int x, int y, int width, int height) const
-{
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_SCISSOR_TEST);
-    glViewport(x, y, width, height);
-    glScissor(x, y, width, height);
-    glClearColor(0.02f, 0.03f, 0.04f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    presentShader.use();
-    presentShader.setInt("buf0", 0);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textureId);
-
-    quad.draw();
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glDisable(GL_SCISSOR_TEST);
-}
-
 int App::run()
 {
-    const PipelineParser parser;
-    const std::vector<PipelineStage> ultrasoundStages = parser.load(pipelinePath("ultrasound.pipeline.xml"));
-    const std::vector<PipelineStage> forwardStages = parser.load(pipelinePath("forward.pipeline.xml"));
-
-    const PipelineStage& combineStage = findPipelineStage(ultrasoundStages, "Combine");
-    const PipelineStage& shadowsStage = findPipelineStage(forwardStages, "Shadows");
-    const PipelineStage& geometryStage = findPipelineStage(forwardStages, "Geometry");
-
-    Shader combineShader(shaderPath("fullscreen.vert"), shaderPath("combine.frag"));
-    Shader presentShader(shaderPath("fullscreen.vert"), shaderPath("present.frag"));
-    Shader sliceShader(shaderPath("fullscreen.vert"), shaderPath("slice_cube.frag"));
-    Shader meshShader(shaderPath("mesh.vert"), shaderPath("mesh.frag"));
-    Shader shadowShader(shaderPath("shadow_depth.vert"), shaderPath("shadow_depth.frag"));
-    FullscreenQuad quad;
-    Mesh cube = Mesh::createCube();
-    PipelineExecutor executor;
-    glm::mat4 cubeModel(1.0f);
-    const glm::mat4 lightViewProjection =
-        glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, 0.1f, 10.0f) *
-        glm::lookAt(glm::vec3(2.0f, 3.0f, 2.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-    PipelineResources forwardResources;
-    forwardResources.renderTargets["SHADOWBUFS"] = shadowTarget_.get();
-    forwardResources.shaders["SHADOWS"] = &shadowShader;
-    forwardResources.shaders["LIGHTING"] = &meshShader;
-    forwardResources.quad = &quad;
-    forwardResources.geometryDraws["SHADOWS"] =
-        [&]()
-        {
-            glEnable(GL_DEPTH_TEST);
-            shadowShader.use();
-            shadowShader.setMat4("uModel", cubeModel);
-            shadowShader.setMat4("uLightViewProjection", lightViewProjection);
-            cube.draw();
-        };
-    forwardResources.geometryDraws["LIGHTING"] =
-        [&]()
-        {
-            glEnable(GL_DEPTH_TEST);
-            meshShader.use();
-            meshShader.setMat4("uModel", cubeModel);
-            meshShader.setMat4("uView", camera_->viewMatrix());
-            meshShader.setMat4("uProjection", camera_->projectionMatrix());
-            cube.draw();
-        };
-
-    PipelineResources ultrasoundResources;
-    ultrasoundResources.renderTargets["DENSITY"] = densityTarget_.get();
-    ultrasoundResources.renderTargets["COMBINE"] = combineTarget_.get();
-    ultrasoundResources.textures["NOISE"] = noiseTexture_.get();
-    ultrasoundResources.textures["METAL"] = metalTexture_.get();
-    ultrasoundResources.textures["LUNGS_IN"] = lungsTexture_.get();
-    ultrasoundResources.textures["ECHOMASK"] = echoMaskTexture_.get();
-    ultrasoundResources.shaders["UBER"] = &combineShader;
-    ultrasoundResources.quad = &quad;
-
     while (!glfwWindowShouldClose(window_))
     {
         glfwPollEvents();
 
-        cubeModel = createCubeModelMatrix(static_cast<float>(glfwGetTime()));
-
-        glDisable(GL_SCISSOR_TEST);
-        executor.executeStage(shadowsStage, forwardResources);
-
-        configureLeftViewport();
-        executor.executeStage(geometryStage, forwardResources);
-        glDisable(GL_SCISSOR_TEST);
-        glDisable(GL_DEPTH_TEST);
-
-        renderDensitySlice(sliceShader, quad, glm::inverse(cubeModel));
-
-        executor.executeStage(combineStage, ultrasoundResources);
-        Framebuffer::unbind();
-
-        int framebufferWidth = WindowWidth;
-        int framebufferHeight = WindowHeight;
+        int framebufferWidth = 0;
+        int framebufferHeight = 0;
         glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
-        const int leftWidth = framebufferWidth / 2;
-        const int rightWidth = framebufferWidth - leftWidth;
 
-        presentTexture(combineTarget_->textureId(), presentShader, quad, leftWidth, 0, rightWidth, framebufferHeight);
+        renderEngine_->resize(framebufferWidth, framebufferHeight);
+        renderEngine_->renderFrame(static_cast<float>(glfwGetTime()));
 
         glfwSwapBuffers(window_);
     }

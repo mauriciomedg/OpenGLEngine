@@ -57,7 +57,7 @@ unsigned int renderTargetTextureId(const Framebuffer& renderTarget)
     throw std::runtime_error("Pipeline render target has no bindable texture.");
 }
 
-void applyBindBuffer(const PipelineCommand& command, const PipelineResources& resources, Shader& shader, int& maxBoundUnit)
+void applyBindBuffer(const PipelineCommand& command, const RendererResources& resources, Shader& shader, int& maxBoundUnit)
 {
     const int unit = command.bufIndex;
     validateTextureUnit(unit);
@@ -112,7 +112,7 @@ void clearTarget(const PipelineCommand& command)
 
 void drawGeometry(
     const PipelineCommand& command,
-    const PipelineResources& resources,
+    const RendererResources& resources,
     std::vector<const PipelineCommand*>& pendingBindBuffers,
     int& maxBoundUnit)
 {
@@ -146,7 +146,7 @@ void drawGeometry(
 
 void PipelineExecutor::executeStage(
     const PipelineStage& stage,
-    const PipelineResources& resources) const
+    const RendererResources& resources) const
 {
     if (!stage.enabled)
     {

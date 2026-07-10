@@ -19,8 +19,6 @@ add_executable(OpenGLEngine
     src/Shader.cpp
     src/FullscreenQuad.h
     src/FullscreenQuad.cpp
-    src/Pipeline/Pipeline.h
-    src/Pipeline/Pipeline.cpp
     src/Pipeline/PipelineExecutor.h
     src/Pipeline/PipelineExecutor.cpp
     src/Pipeline/PipelineParser.h
@@ -31,6 +29,8 @@ add_executable(OpenGLEngine
     src/Renderer/Mesh.cpp
     src/Renderer/Camera.h
     src/Renderer/Camera.cpp
+    src/Renderer/RenderEngine.h
+    src/Renderer/RenderEngine.cpp
     src/Renderer/Texture2D.h
     src/Renderer/Texture2D.cpp
     src/Renderer/TextureFormat.h

@@ -11,7 +11,7 @@ class FullscreenQuad;
 class Shader;
 class Texture2D;
 
-struct PipelineResources
+struct RendererResources
 {
     std::unordered_map<std::string, Framebuffer*> renderTargets;
     std::unordered_map<std::string, const Texture2D*> textures;
@@ -26,5 +26,5 @@ class PipelineExecutor
 public:
     void executeStage(
         const PipelineStage& stage,
-        const PipelineResources& resources) const;
+        const RendererResources& resources) const;
 };
