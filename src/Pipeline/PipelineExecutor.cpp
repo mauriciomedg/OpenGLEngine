@@ -81,6 +81,13 @@ void applyBindBuffer(const PipelineCommand& command, const RendererResources& re
         std::cout << "[XML] BindBuffer " << command.sampler << "/" << command.sourceRT
                   << " unit " << unit
                   << " -> bind render target texture\n";
+
+        static bool loggedShadowBinding = false;
+        if (!loggedShadowBinding && command.sourceRT == "SHADOWBUFS" && command.sampler == "shadowMap")
+        {
+            std::cout << "[Shadow] Bound SHADOWBUFS depth texture to shadowMap\n";
+            loggedShadowBinding = true;
+        }
     }
 
     maxBoundUnit = std::max(maxBoundUnit, unit);

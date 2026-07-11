@@ -41,6 +41,7 @@ private:
     void updateFrameState(float timeSeconds);
     void configureLeftViewport();
     void presentUltrasound();
+    void presentShadowDebug();
 
     int framebufferWidth_ = 0;
     int framebufferHeight_ = 0;
@@ -57,11 +58,13 @@ private:
     std::unique_ptr<Texture2D> echoMaskTexture_;
 
     std::unique_ptr<Shader> presentShader_;
+    std::unique_ptr<Shader> depthDebugShader_;
     std::unique_ptr<Shader> meshShader_;
     std::unique_ptr<Shader> shadowShader_;
 
     std::unique_ptr<FullscreenQuad> fullscreenQuad_;
     std::unique_ptr<Mesh> cube_;
+    std::unique_ptr<Mesh> groundPlane_;
 
     PipelineParser pipelineParser_;
     PipelineExecutor pipelineExecutor_;
@@ -77,6 +80,8 @@ private:
     const PipelineStage* combineStage_ = nullptr;
 
     glm::mat4 cubeModel_{1.0f};
+    glm::mat4 groundModel_{1.0f};
     glm::mat4 inverseCubeModel_{1.0f};
     glm::mat4 lightViewProjection_{1.0f};
+    bool showShadowMap_ = false;
 };

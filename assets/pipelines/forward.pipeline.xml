@@ -23,7 +23,7 @@
       <BindBuffer
           sampler="shadowMap"
           sourceRT="SHADOWBUFS"
-          bufIndex="32" />
+          bufIndex="5" />
 
       <DrawGeometry context="LIGHTING" />
       <DrawGeometry context="PARTICLES" />

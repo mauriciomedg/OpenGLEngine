@@ -14,6 +14,7 @@ public:
     Mesh& operator=(Mesh&& other) noexcept;
 
     static Mesh createCube();
+    static Mesh createPlane();
 
     void draw() const;
 

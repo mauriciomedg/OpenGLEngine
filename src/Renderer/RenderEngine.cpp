@@ -11,9 +11,12 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/matrix.hpp>
+#include <glm/geometric.hpp>
+#include <glm/vec3.hpp>
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <random>
 #include <stdexcept>
 #include <string>
@@ -193,6 +196,7 @@ void RenderEngine::loadPipelines()
 void RenderEngine::createShaders()
 {
     presentShader_ = std::make_unique<Shader>(shaderPath("fullscreen.vert"), shaderPath("present.frag"));
+    depthDebugShader_ = std::make_unique<Shader>(shaderPath("fullscreen.vert"), shaderPath("depth_debug.frag"));
     meshShader_ = std::make_unique<Shader>(shaderPath("mesh.vert"), shaderPath("mesh.frag"));
     shadowShader_ = std::make_unique<Shader>(shaderPath("shadow_depth.vert"), shaderPath("shadow_depth.frag"));
 }
@@ -227,8 +231,9 @@ void RenderEngine::createScene()
     camera_ = std::make_unique<Camera>();
     fullscreenQuad_ = std::make_unique<FullscreenQuad>();
     cube_ = std::make_unique<Mesh>(Mesh::createCube());
+    groundPlane_ = std::make_unique<Mesh>(Mesh::createPlane());
     lightViewProjection_ =
-        glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, 0.1f, 10.0f) *
+        glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 12.0f) *
         glm::lookAt(glm::vec3(2.0f, 3.0f, 2.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
@@ -258,9 +263,26 @@ void RenderEngine::registerGeometryCallbacks()
         {
             glEnable(GL_DEPTH_TEST);
             shadowShader_->use();
+
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(2.0f, 4.0f);
+
             shadowShader_->setMat4("uModel", cubeModel_);
             shadowShader_->setMat4("uLightViewProjection", lightViewProjection_);
             cube_->draw();
+
+            shadowShader_->setMat4("uModel", groundModel_);
+            groundPlane_->draw();
+
+            glDisable(GL_POLYGON_OFFSET_FILL);
+
+            static bool logged = false;
+            if (!logged)
+            {
+                std::cout << "[Shadow] Rendered depth map "
+                          << shadowTarget_->width() << "x" << shadowTarget_->height() << '\n';
+                logged = true;
+            }
         };
 
     resources_.geometryDraws["LIGHTING"] =
@@ -268,10 +290,26 @@ void RenderEngine::registerGeometryCallbacks()
         {
             glEnable(GL_DEPTH_TEST);
             meshShader_->use();
+            meshShader_->setMat4("uLightViewProjection", lightViewProjection_);
+            meshShader_->setVec3("uLightDirection", glm::normalize(glm::vec3(-2.0f, -3.0f, -2.0f)));
+            meshShader_->setVec3("uLightColor", glm::vec3(1.0f));
+            meshShader_->setVec3("uAmbientColor", glm::vec3(0.18f));
+            meshShader_->setBool("uEnablePcf", true);
+
             meshShader_->setMat4("uModel", cubeModel_);
             meshShader_->setMat4("uView", camera_->viewMatrix());
             meshShader_->setMat4("uProjection", camera_->projectionMatrix());
             cube_->draw();
+
+            meshShader_->setMat4("uModel", groundModel_);
+            groundPlane_->draw();
+
+            static bool logged = false;
+            if (!logged)
+            {
+                std::cout << "[Shadow] PCF enabled\n";
+                logged = true;
+            }
         };
 }
 
@@ -331,6 +369,31 @@ void RenderEngine::presentUltrasound()
     glDisable(GL_SCISSOR_TEST);
 }
 
+void RenderEngine::presentShadowDebug()
+{
+    const int leftWidth = framebufferWidth_ / 2;
+    const int rightWidth = framebufferWidth_ - leftWidth;
+
+    Framebuffer::unbind();
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_SCISSOR_TEST);
+    glViewport(leftWidth, 0, rightWidth, framebufferHeight_);
+    glScissor(leftWidth, 0, rightWidth, framebufferHeight_);
+    glClearColor(0.02f, 0.03f, 0.04f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    depthDebugShader_->use();
+    depthDebugShader_->setInt("buf0", 0);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, shadowTarget_->depthTextureId());
+
+    fullscreenQuad_->draw();
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_SCISSOR_TEST);
+}
+
 void RenderEngine::renderFrame(float timeSeconds)
 {
     updateFrameState(timeSeconds);
@@ -349,5 +412,12 @@ void RenderEngine::renderFrame(float timeSeconds)
     pipelineExecutor_.executeStage(*combineStage_, resources_);
 
     Framebuffer::unbind();
-    presentUltrasound();
+    if (showShadowMap_)
+    {
+        presentShadowDebug();
+    }
+    else
+    {
+        presentUltrasound();
+    }
 }
