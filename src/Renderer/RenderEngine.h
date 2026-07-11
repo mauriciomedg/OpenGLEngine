@@ -11,6 +11,7 @@
 
 class Camera;
 class Framebuffer;
+class FrameProfiler;
 class FullscreenQuad;
 class Mesh;
 class Shader;
@@ -32,6 +33,7 @@ private:
     void loadPipelines();
     void createShaders();
     void createRenderTargets();
+    void labelRenderTargets();
     void createProceduralTextures();
     void createScene();
     void registerResources();
@@ -47,6 +49,7 @@ private:
     int framebufferHeight_ = 0;
 
     std::unique_ptr<Camera> camera_;
+    std::unique_ptr<FrameProfiler> frameProfiler_;
 
     std::unique_ptr<Framebuffer> shadowTarget_;
     std::unique_ptr<Framebuffer> densityTarget_;

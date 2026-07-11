@@ -23,6 +23,11 @@ add_executable(OpenGLEngine
     src/Material/Material.cpp
     src/Material/MaterialManager.h
     src/Material/MaterialManager.cpp
+    src/Profiling/ScopedGpuDebugGroup.h
+    src/Profiling/GpuTimer.h
+    src/Profiling/GpuTimer.cpp
+    src/Profiling/FrameProfiler.h
+    src/Profiling/FrameProfiler.cpp
     src/Pipeline/PipelineExecutor.h
     src/Pipeline/PipelineExecutor.cpp
     src/Pipeline/PipelineParser.h

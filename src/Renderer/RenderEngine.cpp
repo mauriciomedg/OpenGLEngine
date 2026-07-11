@@ -1,6 +1,8 @@
 #include "RenderEngine.h"
 
 #include "../FullscreenQuad.h"
+#include "../Profiling/FrameProfiler.h"
+#include "../Profiling/ScopedGpuDebugGroup.h"
 #include "../Shader.h"
 #include "Camera.h"
 #include "Framebuffer.h"
@@ -15,6 +17,7 @@
 #include <glm/vec3.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <iostream>
 #include <random>
@@ -152,6 +155,37 @@ std::vector<float> createEchoMaskTexture(int width, int height)
 
     return data;
 }
+
+void labelOpenGlObject(GLenum identifier, GLuint object, const char* name)
+{
+    if (object != 0 && glObjectLabel != nullptr)
+    {
+        glObjectLabel(identifier, object, -1, name);
+    }
+}
+
+class ScopedProfileTimer
+{
+public:
+    ScopedProfileTimer(FrameProfiler& profiler, ProfileStage stage)
+        : profiler_(profiler)
+        , stage_(stage)
+    {
+        profiler_.begin(stage_);
+    }
+
+    ~ScopedProfileTimer()
+    {
+        profiler_.end(stage_);
+    }
+
+    ScopedProfileTimer(const ScopedProfileTimer&) = delete;
+    ScopedProfileTimer& operator=(const ScopedProfileTimer&) = delete;
+
+private:
+    FrameProfiler& profiler_;
+    ProfileStage stage_;
+};
 }
 
 RenderEngine::RenderEngine(int initialWindowWidth, int initialWindowHeight)
@@ -161,8 +195,10 @@ RenderEngine::RenderEngine(int initialWindowWidth, int initialWindowHeight)
     loadPipelines();
     createShaders();
     createRenderTargets();
+    labelRenderTargets();
     createProceduralTextures();
     createScene();
+    frameProfiler_ = std::make_unique<FrameProfiler>();
     registerResources();
     registerGeometryCallbacks();
     registerShaderSetups();
@@ -211,6 +247,16 @@ void RenderEngine::createRenderTargets()
         FramebufferFormat::Depth32F});
     densityTarget_ = std::make_unique<Framebuffer>(ProceduralTextureSize, ProceduralTextureSize, FramebufferFormat::R32F);
     combineTarget_ = std::make_unique<Framebuffer>(WindowWidth, WindowHeight, FramebufferFormat::RGBA8);
+}
+
+void RenderEngine::labelRenderTargets()
+{
+    labelOpenGlObject(GL_FRAMEBUFFER, shadowTarget_->fboId(), "Framebuffer/Shadow");
+    labelOpenGlObject(GL_TEXTURE, shadowTarget_->depthTextureId(), "Texture/ShadowDepth");
+    labelOpenGlObject(GL_FRAMEBUFFER, densityTarget_->fboId(), "Framebuffer/Density");
+    labelOpenGlObject(GL_TEXTURE, densityTarget_->textureId(), "Texture/Density");
+    labelOpenGlObject(GL_FRAMEBUFFER, combineTarget_->fboId(), "Framebuffer/Combine");
+    labelOpenGlObject(GL_TEXTURE, combineTarget_->textureId(), "Texture/Combine");
 }
 
 void RenderEngine::createProceduralTextures()
@@ -396,28 +442,55 @@ void RenderEngine::presentShadowDebug()
 
 void RenderEngine::renderFrame(float timeSeconds)
 {
+    const auto cpuStart = std::chrono::steady_clock::now();
+
     updateFrameState(timeSeconds);
 
     glDisable(GL_SCISSOR_TEST);
-    pipelineExecutor_.executeStage(*shadowsStage_, resources_);
+    {
+        ScopedGpuDebugGroup marker("Frame/Shadows");
+        ScopedProfileTimer timer(*frameProfiler_, ProfileStage::Shadow);
+        pipelineExecutor_.executeStage(*shadowsStage_, resources_);
+    }
 
     configureLeftViewport();
-    pipelineExecutor_.executeStage(*geometryStage_, resources_);
+    {
+        ScopedGpuDebugGroup marker("Frame/Geometry");
+        ScopedProfileTimer timer(*frameProfiler_, ProfileStage::Geometry);
+        pipelineExecutor_.executeStage(*geometryStage_, resources_);
+    }
 
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
 
-    pipelineExecutor_.executeStage(*sliceStage_, resources_);
+    {
+        ScopedGpuDebugGroup marker("Frame/Slice");
+        ScopedProfileTimer timer(*frameProfiler_, ProfileStage::Slice);
+        pipelineExecutor_.executeStage(*sliceStage_, resources_);
+    }
 
-    pipelineExecutor_.executeStage(*combineStage_, resources_);
+    {
+        ScopedGpuDebugGroup marker("Frame/Combine");
+        ScopedProfileTimer timer(*frameProfiler_, ProfileStage::Combine);
+        pipelineExecutor_.executeStage(*combineStage_, resources_);
+    }
 
     Framebuffer::unbind();
-    if (showShadowMap_)
     {
-        presentShadowDebug();
+        ScopedGpuDebugGroup marker("Frame/Present");
+        ScopedProfileTimer timer(*frameProfiler_, ProfileStage::Present);
+
+        if (showShadowMap_)
+        {
+            presentShadowDebug();
+        }
+        else
+        {
+            presentUltrasound();
+        }
     }
-    else
-    {
-        presentUltrasound();
-    }
+
+    const auto cpuEnd = std::chrono::steady_clock::now();
+    const double cpuFrameMs = std::chrono::duration<double, std::milli>(cpuEnd - cpuStart).count();
+    frameProfiler_->endFrame(cpuFrameMs);
 }
