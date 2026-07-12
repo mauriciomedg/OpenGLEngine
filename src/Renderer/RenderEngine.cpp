@@ -174,7 +174,7 @@ public:
         profiler_.begin(stage_);
     }
 
-    ~ScopedProfileTimer()
+    ~ScopedProfileTimer() noexcept
     {
         profiler_.end(stage_);
     }

@@ -5,6 +5,16 @@
 
 GpuTimer::GpuTimer()
 {
+    if (glGenQueries == nullptr ||
+        glDeleteQueries == nullptr ||
+        glBeginQuery == nullptr ||
+        glEndQuery == nullptr ||
+        glGetQueryObjectiv == nullptr ||
+        glGetQueryObjectui64v == nullptr)
+    {
+        throw std::runtime_error("OpenGL timer queries are not available.");
+    }
+
     glGenQueries(static_cast<GLsizei>(queries_.size()), queries_.data());
 }
 
@@ -24,6 +34,7 @@ void GpuTimer::begin()
     if (pendingCount_ == QueryCount)
     {
         skipped_ = true;
+        ++skippedCount_;
         return;
     }
 
@@ -31,7 +42,7 @@ void GpuTimer::begin()
     active_ = true;
 }
 
-void GpuTimer::end()
+void GpuTimer::end() noexcept
 {
     if (skipped_)
     {
@@ -39,9 +50,10 @@ void GpuTimer::end()
         return;
     }
 
+    assert(active_);
     if (!active_)
     {
-        throw std::logic_error("GPU timer query is not active.");
+        return;
     }
 
     glEndQuery(GL_TIME_ELAPSED);
@@ -73,4 +85,9 @@ bool GpuTimer::tryCollect(double& milliseconds)
     readIndex_ = (readIndex_ + 1) % QueryCount;
     --pendingCount_;
     return true;
+}
+
+std::size_t GpuTimer::skippedCount() const noexcept
+{
+    return skippedCount_;
 }

@@ -25,6 +25,9 @@ enum class ProfileStage : std::size_t
     Count
 };
 
+static constexpr std::size_t ProfileStageCount =
+    static_cast<std::size_t>(ProfileStage::Count);
+
 class FrameProfiler
 {
 public:
@@ -34,18 +37,18 @@ public:
     FrameProfiler& operator=(const FrameProfiler&) = delete;
 
     void begin(ProfileStage stage);
-    void end(ProfileStage stage);
+    void end(ProfileStage stage) noexcept;
 
     void beginShadow();
-    void endShadow();
+    void endShadow() noexcept;
     void beginGeometry();
-    void endGeometry();
+    void endGeometry() noexcept;
     void beginSlice();
-    void endSlice();
+    void endSlice() noexcept;
     void beginCombine();
-    void endCombine();
+    void endCombine() noexcept;
     void beginPresent();
-    void endPresent();
+    void endPresent() noexcept;
 
     void endFrame(double cpuFrameMs);
 
@@ -56,15 +59,15 @@ private:
         std::size_t samples = 0;
     };
 
-    static constexpr std::size_t StageCount = static_cast<std::size_t>(ProfileStage::Count);
     static constexpr int ReportFrameInterval = 120;
 
     void collectGpuSamples();
     void printReport() const;
     void reset();
 
-    std::array<GpuTimer, StageCount> timers_;
-    std::array<StageStats, StageCount> gpuStats_{};
+    std::array<GpuTimer, ProfileStageCount> timers_;
+    std::array<StageStats, ProfileStageCount> gpuStats_{};
+    std::array<std::size_t, ProfileStageCount> lastReportedSkippedCounts_{};
 
     double cpuFrameSumMs_ = 0.0;
     int framesSinceReport_ = 0;
