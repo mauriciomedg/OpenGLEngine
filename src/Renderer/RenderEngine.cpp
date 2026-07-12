@@ -73,6 +73,38 @@ glm::mat4 createCubeModelMatrix(float time)
     return model;
 }
 
+std::size_t cubeGridSide(std::size_t cubeCount)
+{
+    return std::max<std::size_t>(
+        1,
+        static_cast<std::size_t>(std::ceil(std::cbrt(static_cast<double>(cubeCount)))));
+}
+
+std::vector<glm::mat4> createCubeGrid(std::size_t cubeCount, float spacing)
+{
+    std::vector<glm::mat4> transforms;
+    transforms.reserve(cubeCount);
+
+    const std::size_t side = cubeGridSide(cubeCount);
+    const float centerOffset = (static_cast<float>(side) - 1.0f) * 0.5f;
+
+    for (std::size_t index = 0; index < cubeCount; ++index)
+    {
+        const std::size_t x = index % side;
+        const std::size_t z = (index / side) % side;
+        const std::size_t y = index / (side * side);
+
+        const glm::vec3 position(
+            (static_cast<float>(x) - centerOffset) * spacing,
+            static_cast<float>(y) * spacing,
+            (static_cast<float>(z) - centerOffset) * spacing);
+
+        transforms.push_back(glm::translate(glm::mat4(1.0f), position));
+    }
+
+    return transforms;
+}
+
 std::vector<float> createNoiseTexture(int width, int height)
 {
     std::vector<float> data(width * height);
@@ -277,10 +309,25 @@ void RenderEngine::createScene()
     camera_ = std::make_unique<Camera>();
     fullscreenQuad_ = std::make_unique<FullscreenQuad>();
     cube_ = std::make_unique<Mesh>(Mesh::createCube());
+    cubeInstanceTransforms_ = createCubeGrid(stressSettings_.cubeCount, stressSettings_.spacing);
+    cube_->setInstanceTransforms(cubeInstanceTransforms_);
     groundPlane_ = std::make_unique<Mesh>(Mesh::createPlane());
+
+    const float side = static_cast<float>(cubeGridSide(stressSettings_.cubeCount));
+    const float gridExtent = std::max(6.0f, side * stressSettings_.spacing);
+    camera_->setView(
+        glm::vec3(0.0f, gridExtent * 0.45f, gridExtent * 1.45f),
+        glm::vec3(0.0f, gridExtent * 0.18f, 0.0f));
+    camera_->setPerspective(50.0f, 0.1f, 300.0f);
+
     lightViewProjection_ =
-        glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 12.0f) *
-        glm::lookAt(glm::vec3(2.0f, 3.0f, 2.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::ortho(-gridExtent, gridExtent, -gridExtent, gridExtent, 0.1f, gridExtent * 4.0f) *
+        glm::lookAt(
+            glm::vec3(gridExtent * 0.7f, gridExtent * 1.0f, gridExtent * 0.7f),
+            glm::vec3(0.0f),
+            glm::vec3(0.0f, 1.0f, 0.0f));
+
+    std::cout << "[Stress] Instanced cube count: " << cubeInstanceTransforms_.size() << '\n';
 }
 
 void RenderEngine::registerResources()
@@ -313,11 +360,12 @@ void RenderEngine::registerGeometryCallbacks()
             glEnable(GL_POLYGON_OFFSET_FILL);
             glPolygonOffset(2.0f, 4.0f);
 
-            shadowShader_->setMat4("uModel", cubeModel_);
             shadowShader_->setMat4("uLightViewProjection", lightViewProjection_);
-            cube_->draw();
+            shadowShader_->setBool("uUseInstancing", true);
+            cube_->drawInstanced(cubeInstanceTransforms_.size());
 
             shadowShader_->setMat4("uModel", groundModel_);
+            shadowShader_->setBool("uUseInstancing", false);
             groundPlane_->draw();
 
             glDisable(GL_POLYGON_OFFSET_FILL);
@@ -342,12 +390,13 @@ void RenderEngine::registerGeometryCallbacks()
             meshShader_->setVec3("uAmbientColor", glm::vec3(0.18f));
             meshShader_->setBool("uEnablePcf", true);
 
-            meshShader_->setMat4("uModel", cubeModel_);
             meshShader_->setMat4("uView", camera_->viewMatrix());
             meshShader_->setMat4("uProjection", camera_->projectionMatrix());
-            cube_->draw();
+            meshShader_->setBool("uUseInstancing", true);
+            cube_->drawInstanced(cubeInstanceTransforms_.size());
 
             meshShader_->setMat4("uModel", groundModel_);
+            meshShader_->setBool("uUseInstancing", false);
             groundPlane_->draw();
 
             static bool logged = false;

@@ -22,3 +22,16 @@ void Camera::setAspectRatio(float aspectRatio)
 {
     aspectRatio_ = aspectRatio;
 }
+
+void Camera::setView(const glm::vec3& position, const glm::vec3& target)
+{
+    position_ = position;
+    target_ = target;
+}
+
+void Camera::setPerspective(float fovDegrees, float nearPlane, float farPlane)
+{
+    fovDegrees_ = fovDegrees;
+    nearPlane_ = nearPlane;
+    farPlane_ = farPlane;
+}

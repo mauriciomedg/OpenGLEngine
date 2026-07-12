@@ -13,6 +13,8 @@ public:
     glm::mat4 projectionMatrix() const;
 
     void setAspectRatio(float aspectRatio);
+    void setView(const glm::vec3& position, const glm::vec3& target);
+    void setPerspective(float fovDegrees, float nearPlane, float farPlane);
 
 private:
     glm::vec3 position_ = glm::vec3(0.0f, 0.0f, 3.0f);
