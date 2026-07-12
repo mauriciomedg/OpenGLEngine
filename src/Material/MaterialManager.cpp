@@ -1,5 +1,7 @@
 #include "MaterialManager.h"
 
+#include "../Debug/LoggingConfig.h"
+
 #include <filesystem>
 #include <iostream>
 
@@ -30,11 +32,17 @@ Material& MaterialManager::load(const std::filesystem::path& materialPath)
     const auto found = materials_.find(key);
     if (found != materials_.end())
     {
-        std::cout << "[Material] Cache hit " << displayPath(materialPath) << '\n';
+        if constexpr (EnableMaterialCacheLogging)
+        {
+            std::cout << "[Material] Cache hit " << displayPath(materialPath) << '\n';
+        }
         return *found->second;
     }
 
-    std::cout << "[Material] Loading " << displayPath(materialPath) << '\n';
+    if constexpr (EnableMaterialCacheLogging)
+    {
+        std::cout << "[Material] Loading " << displayPath(materialPath) << '\n';
+    }
     auto material = std::make_unique<Material>(key);
     Material& materialRef = *material;
     materials_.emplace(key, std::move(material));

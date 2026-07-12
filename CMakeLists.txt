@@ -19,6 +19,7 @@ add_executable(OpenGLEngine
     src/Shader.cpp
     src/FullscreenQuad.h
     src/FullscreenQuad.cpp
+    src/Debug/LoggingConfig.h
     src/Material/Material.h
     src/Material/Material.cpp
     src/Material/MaterialManager.h

@@ -1,5 +1,6 @@
 #include "PipelineExecutor.h"
 
+#include "../Debug/LoggingConfig.h"
 #include "../FullscreenQuad.h"
 #include "../Material/Material.h"
 #include "../Material/MaterialManager.h"
@@ -70,17 +71,23 @@ void applyBindBuffer(const PipelineCommand& command, const RendererResources& re
     if (texture != resources.textures.end() && texture->second != nullptr)
     {
         texture->second->bind(static_cast<unsigned int>(unit));
-        std::cout << "[XML] BindBuffer " << command.sampler << "/" << command.sourceRT
-                  << " unit " << unit
-                  << " -> glUniform1i + glActiveTexture + glBindTexture\n";
+        if constexpr (EnablePipelineLogging)
+        {
+            std::cout << "[XML] BindBuffer " << command.sampler << "/" << command.sourceRT
+                      << " unit " << unit
+                      << " -> glUniform1i + glActiveTexture + glBindTexture\n";
+        }
     }
     else
     {
         const Framebuffer* renderTarget = findResource(resources.renderTargets, command.sourceRT, "render target texture");
         bindTextureId(renderTargetTextureId(*renderTarget), static_cast<unsigned int>(unit));
-        std::cout << "[XML] BindBuffer " << command.sampler << "/" << command.sourceRT
-                  << " unit " << unit
-                  << " -> bind render target texture\n";
+        if constexpr (EnablePipelineLogging)
+        {
+            std::cout << "[XML] BindBuffer " << command.sampler << "/" << command.sourceRT
+                      << " unit " << unit
+                      << " -> bind render target texture\n";
+        }
 
         static bool loggedShadowBinding = false;
         if (!loggedShadowBinding && command.sourceRT == "SHADOWBUFS" && command.sampler == "shadowMap")
@@ -114,9 +121,12 @@ void clearTarget(const PipelineCommand& command)
         glClear(clearMask);
     }
 
-    std::cout << "[XML] ClearTarget color=" << (command.clearColor0 ? "true" : "false")
-              << " depth=" << (command.clearDepth ? "true" : "false")
-              << " -> glClearColor/glClearDepth/glClear\n";
+    if constexpr (EnablePipelineLogging)
+    {
+        std::cout << "[XML] ClearTarget color=" << (command.clearColor0 ? "true" : "false")
+                  << " depth=" << (command.clearDepth ? "true" : "false")
+                  << " -> glClearColor/glClearDepth/glClear\n";
+    }
 }
 
 void drawGeometry(
@@ -142,13 +152,19 @@ void drawGeometry(
     if (draw != resources.geometryDraws.end())
     {
         draw->second();
-        std::cout << "[XML] DrawGeometry context " << command.context
-                  << " -> geometry callback -> glDrawElements\n";
+        if constexpr (EnablePipelineLogging)
+        {
+            std::cout << "[XML] DrawGeometry context " << command.context
+                      << " -> geometry callback -> glDrawElements\n";
+        }
     }
     else
     {
-        std::cout << "[XML] DrawGeometry context " << command.context
-                  << " -> no registered callback\n";
+        if constexpr (EnablePipelineLogging)
+        {
+            std::cout << "[XML] DrawGeometry context " << command.context
+                      << " -> no registered callback\n";
+        }
     }
 }
 
@@ -186,14 +202,20 @@ void PipelineExecutor::executeStage(
             if (command.target.empty())
             {
                 Framebuffer::unbind();
-                std::cout << "[XML] SwitchTarget default -> glBindFramebuffer\n";
+                if constexpr (EnablePipelineLogging)
+                {
+                    std::cout << "[XML] SwitchTarget default -> glBindFramebuffer\n";
+                }
             }
             else
             {
                 Framebuffer* target = findResource(resources.renderTargets, command.target, "render target");
                 target->bind();
-                std::cout << "[XML] SwitchTarget " << command.target
-                          << " -> glBindFramebuffer + glViewport\n";
+                if constexpr (EnablePipelineLogging)
+                {
+                    std::cout << "[XML] SwitchTarget " << command.target
+                              << " -> glBindFramebuffer + glViewport\n";
+                }
             }
             break;
         }
@@ -247,11 +269,14 @@ void PipelineExecutor::executeStage(
 
             resources.quad->draw();
 
-            std::cout << "[XML] DrawQuad material " << command.material
-                      << " context " << command.context
-                      << " -> Material -> Shader -> glUseProgram"
-                      << (setupApplied ? " + setup uniforms" : "")
-                      << " + glDrawArrays\n";
+            if constexpr (EnablePipelineLogging)
+            {
+                std::cout << "[XML] DrawQuad material " << command.material
+                          << " context " << command.context
+                          << " -> Material -> Shader -> glUseProgram"
+                          << (setupApplied ? " + setup uniforms" : "")
+                          << " + glDrawArrays\n";
+            }
             break;
         }
         case PipelineCommandType::UnbindBuffers:
@@ -261,7 +286,10 @@ void PipelineExecutor::executeStage(
             }
 
             glActiveTexture(GL_TEXTURE0);
-            std::cout << "[XML] UnbindBuffers -> glBindTexture(0)\n";
+            if constexpr (EnablePipelineLogging)
+            {
+                std::cout << "[XML] UnbindBuffers -> glBindTexture(0)\n";
+            }
             break;
         }
     }
