@@ -3,6 +3,7 @@
 #include "../Pipeline/PipelineExecutor.h"
 #include "../Pipeline/PipelineParser.h"
 #include "../Material/MaterialManager.h"
+#include "../Benchmark/StressSettings.h"
 
 #include <glm/mat4x4.hpp>
 
@@ -11,6 +12,7 @@
 
 class Camera;
 class Framebuffer;
+class FrameProfiler;
 class FullscreenQuad;
 class Mesh;
 class Shader;
@@ -32,6 +34,7 @@ private:
     void loadPipelines();
     void createShaders();
     void createRenderTargets();
+    void labelRenderTargets();
     void createProceduralTextures();
     void createScene();
     void registerResources();
@@ -47,6 +50,7 @@ private:
     int framebufferHeight_ = 0;
 
     std::unique_ptr<Camera> camera_;
+    std::unique_ptr<FrameProfiler> frameProfiler_;
 
     std::unique_ptr<Framebuffer> shadowTarget_;
     std::unique_ptr<Framebuffer> densityTarget_;
@@ -65,6 +69,7 @@ private:
     std::unique_ptr<FullscreenQuad> fullscreenQuad_;
     std::unique_ptr<Mesh> cube_;
     std::unique_ptr<Mesh> groundPlane_;
+    std::vector<glm::mat4> cubeInstanceTransforms_;
 
     PipelineParser pipelineParser_;
     PipelineExecutor pipelineExecutor_;
@@ -83,5 +88,6 @@ private:
     glm::mat4 groundModel_{1.0f};
     glm::mat4 inverseCubeModel_{1.0f};
     glm::mat4 lightViewProjection_{1.0f};
+    StressSettings stressSettings_{1, 1.4f};
     bool showShadowMap_ = false;
 };
